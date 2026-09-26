@@ -9,7 +9,7 @@ The cats now react like cats, not just turn toward the pointer.
 - Ears swivel toward the pointer, lagging the head slightly.
 - Breathing: the layered cat's chest rises and falls on a 4.6 s cycle.
 - Alert: a fast flick of the pointer within about 420 px perks the ears and sets the tail tip twitching for about 2 s.
-- Petting: slow strokes across the cat, mouse or finger, make it purr. Its eyes close, its ears relax sideways, its head leans in, its tail lifts and sways slowly, its breathing quickens, and a small "prrr…" appears. A fast swipe counts as startling, not petting.
+- Petting: slow back-and-forth strokes across the cat, mouse or finger, make it purr. A single pass on the way somewhere else does not count. Its eyes close, its ears relax sideways, its head leans in, its tail lifts and sways slowly, its breathing quickens, and a small "prrr…" appears. A fast swipe counts as startling, not petting.
 - Slow blink: resting the pointer near a cat's face for about 1.2 s earns a slow blink, the cat's sign of trust. The painted hero cats do the same.
 - Pause motion and reduced motion switch all of this off.
 

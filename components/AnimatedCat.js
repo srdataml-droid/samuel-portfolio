@@ -79,19 +79,26 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
     };
 
     // Stroking the cat (moving across it, mouse or finger) starts a purr.
-    let stroke = 0, strokeAt = 0, strokePrev = null;
+    let stroke = 0, strokeAt = 0, strokePrev = null, heading = 0, turns = 0;
     const pet = (event) => {
       if (busy()) return;
       const now = performance.now();
-      if (now - strokeAt > 600) { stroke = 0; strokePrev = null; }
+      if (now - strokeAt > 600) { stroke = 0; strokePrev = null; heading = 0; turns = 0; }
       if (strokePrev) {
-        const step = Math.hypot(event.clientX - strokePrev.x, event.clientY - strokePrev.y);
+        const dx = event.clientX - strokePrev.x;
+        const step = Math.hypot(dx, event.clientY - strokePrev.y);
         // Petting is unhurried; a fast swipe across the cat startles it instead.
         if (step / Math.max(now - strokeAt, 1) < 1.5) stroke += step;
+        // A stroke goes back and forth; one pass on the way somewhere else doesn't count.
+        if (Math.abs(dx) > 3) {
+          const dir = Math.sign(dx);
+          if (heading && dir !== heading) turns += 1;
+          heading = dir;
+        }
       }
       strokePrev = { x: event.clientX, y: event.clientY };
       strokeAt = now;
-      if (stroke > 90) {
+      if (stroke > 140 && turns >= 1) {
         setPurr(true);
         setAlert(false);
         later('purr', () => setPurr(false), 1400);
