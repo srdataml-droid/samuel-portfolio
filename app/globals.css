@@ -1347,7 +1347,7 @@ button.cat-touch { cursor: pointer; border-radius: 18px; }
 .cat-actions button:disabled { opacity: .45; cursor: default; }
 /* --cat-yaw / --cat-pitch are -1..1 (eased by lib/follow.js). --cat-flip is -1 when the
    meadow cat is mirrored so it still turns toward the pointer, not away. */
-.animated-cat { --cat-yaw: 0; --cat-pitch: 0; --cat-flip: 1; }
+.animated-cat { --cat-yaw: 0; --cat-pitch: 0; --eye-x: 0; --eye-y: 0; --cat-flip: 1; --ear-perk: 0; --ear-relax: 0; }
 .cat-facing-left { --cat-flip: -1; }
 .cat-touch { perspective: 700px; }
 /* The body turn uses the standalone `rotate` property, so it stacks with the walk,
@@ -1362,6 +1362,37 @@ button.cat-touch { cursor: pointer; border-radius: 18px; }
 .rig-ear { transform-box: view-box; }
 .ear-left { transform-origin: 1175px 240px; animation: cat-ear-left 11s ease-in-out infinite; }
 .ear-right { transform-origin: 1400px 240px; animation: cat-ear-right 13s ease-in-out infinite; }
+
+/* ---- cat behaviour: ears swivel toward the pointer, perk up when alert and
+   relax sideways while purring. The standalone `rotate` stacks with the
+   occasional ear-flick keyframes, and the transition gives the ears a beat of
+   lag behind the head, like the real thing. ---- */
+.rig-ear { transition: rotate .35s ease-out; }
+.ear-left  { rotate: calc(var(--cat-yaw) * var(--cat-flip) * 7deg + var(--ear-perk) * 6deg - var(--ear-relax) * 10deg); }
+.ear-right { rotate: calc(var(--cat-yaw) * var(--cat-flip) * 7deg - var(--ear-perk) * 6deg + var(--ear-relax) * 10deg); }
+/* Eyes: a copy of the eyes slides inside soft-edged sockets, ahead of the head. */
+.rig-iris { transform: translate(calc(var(--eye-x) * var(--cat-flip) * 13px), calc(var(--eye-y) * 7px)); }
+/* Breathing: a slow rise of the chest. Uses `scale`, so the stretch still works. */
+.rig-body { animation: cat-breathe-rig 4.6s ease-in-out infinite; }
+@keyframes cat-breathe-rig { 0%, 100% { scale: 1 1; } 45% { scale: 1.004 1.016; } }
+.rig-head { transition: rotate .5s cubic-bezier(.22, 1, .36, 1); }
+/* Alert: something moved fast nearby. Ears up, tail tip twitching. */
+.cat-alert { --ear-perk: 1; }
+.cat-alert .tail-motion { animation: cat-tail-twitch .75s ease-in-out infinite; }
+@keyframes cat-tail-twitch { 0%, 100% { transform: rotate(4deg); } 30% { transform: rotate(-6deg); } 55% { transform: rotate(2deg); } 75% { transform: rotate(-3deg); } }
+/* Purring while being stroked: eyes shut, ears relaxed, head leaning into the hand, tail up and slow. */
+.cat-purr { --ear-relax: 1; }
+.cat-purr .blink-motion { animation: none; opacity: 1; }
+.cat-purr .rig-head { rotate: -5deg; }
+.cat-purr .rig-body { animation: cat-breathe-rig 2.4s ease-in-out infinite; }
+.cat-purr .tail-motion { animation: cat-tail-content 3.4s ease-in-out infinite; }
+@keyframes cat-tail-content { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(-2deg); } }
+.cat-purr-note { position: absolute; right: 2%; top: -2%; font-family: var(--hand); font-size: 17px; color: currentColor; opacity: 0; transform: translateY(4px); transition: opacity .4s ease, transform .4s ease; pointer-events: none; }
+.cat-purr .cat-purr-note { opacity: .75; transform: none; }
+.cat-facing-left .cat-purr-note { scale: -1 1; }
+/* Slow blink: the cat's way of saying it trusts you. */
+.cat-slowblink .blink-motion { animation: cat-slow-blink 1.6s ease-in-out; }
+@keyframes cat-slow-blink { 0%, 100% { opacity: 0; } 32%, 62% { opacity: 1; } }
 @keyframes cat-ear-left { 0%,70%,80%,100% { transform: rotate(0); } 73%,77% { transform: rotate(-4deg); } 75% { transform: rotate(1deg); } }
 @keyframes cat-ear-right { 0%,60%,70%,100% { transform: rotate(0); } 64% { transform: rotate(4deg); } 67% { transform: rotate(-1deg); } }
 .rig-body { transform-origin: 800px 1060px; }
@@ -1386,11 +1417,13 @@ button.cat-touch { cursor: pointer; border-radius: 18px; }
 .cat-sleep .cat-zzz { animation: sleep-letters 4s ease-in-out infinite; }
 @keyframes sleeping-breath { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(1.018); } }
 @keyframes sleep-letters { 0%,100% { opacity: .1; transform: translateY(0); } 50% { opacity: .7; transform: translateY(-5px); } }
-.cat-still .rig-head { transform: none; }
+.cat-still .rig-head, .cat-still .rig-iris { transform: none; rotate: none; }
+.cat-still .rig-ear { rotate: none; }
 .cat-still .mascot { rotate: none; }
 @media (prefers-reduced-motion: reduce) {
-  .rig-ear, .rig-leg, .rig-body, .cat-walk .articulated-cat, .cat-sleep-pose, .cat-zzz { animation: none !important; transition: none !important; }
-  .rig-head { transform: none; transition: none; }
+  .rig-ear, .rig-leg, .rig-body, .cat-walk .articulated-cat, .cat-sleep-pose, .cat-zzz, .tail-motion { animation: none !important; transition: none !important; }
+  .rig-head { transform: none; transition: none; rotate: none; }
+  .rig-ear, .rig-iris { rotate: none; transform: none; }
   .mascot { rotate: none; }
   .cat-sleep .cat-zzz { opacity: .5; }
 }

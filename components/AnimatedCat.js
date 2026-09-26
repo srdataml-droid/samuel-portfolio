@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { followPointer } from '@/lib/follow';
+import { followPointer, onPointerRest } from '@/lib/follow';
 
 export default function AnimatedCat({ className = '', interactive = true, meadow = false }) {
   const id = useId().replace(/:/g, '');
@@ -10,9 +10,16 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
   const [still, setStill] = useState(false);
   const [atRight, setAtRight] = useState(false);
   const [facingLeft, setFacingLeft] = useState(false);
+  // Moods layered on top of the current action: alert (something moved fast
+  // nearby), purr (being stroked) and a slow blink (someone lingering close).
+  const [alert, setAlert] = useState(false);
+  const [purr, setPurr] = useState(false);
+  const [slowBlink, setSlowBlink] = useState(false);
   const activity = useRef(Date.now());
   const actionRef = useRef('idle');
   actionRef.current = action;
+  const facingRef = useRef(false);
+  facingRef.current = facingLeft;
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -33,18 +40,80 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
   useEffect(() => {
     if (!interactive || still) return;
     const el = root.current;
-    // Eased pointer follow: the whole cat turns in perspective and the head leads (see globals.css).
-    const stop = followPointer(el, ({ x, y }) => {
-      el.style.setProperty('--cat-yaw', x.toFixed(3));
-      el.style.setProperty('--cat-pitch', y.toFixed(3));
-    });
+    const touch = el.querySelector('.cat-touch');
+    const set = (xName, yName) => ({ x, y }) => {
+      el.style.setProperty(xName, x.toFixed(3));
+      el.style.setProperty(yName, y.toFixed(3));
+    };
+    // Where the eyes are in the artwork, mirrored when the meadow cat faces left.
+    const eyes = () => ({ x: facingRef.current ? 0.19 : 0.81, y: 0.25 });
+    const timers = {};
+    const later = (key, fn, ms) => { clearTimeout(timers[key]); timers[key] = setTimeout(fn, ms); };
+    const busy = () => actionRef.current === 'sleep' || actionRef.current === 'walk';
+
+    // The eyes lead: quick, and they glance about when nothing is moving.
+    // The body follows more slowly behind them.
+    const stops = [
+      followPointer(touch, set('--eye-x', '--eye-y'), { settleMs: 60, reach: 0.9, idleMs: 2500, origin: eyes, wander: true }),
+      followPointer(touch, set('--cat-yaw', '--cat-pitch')),
+      onPointerRest(touch, () => {
+        if (busy()) return;
+        setSlowBlink(true);
+        later('blink', () => setSlowBlink(false), 1700);
+      }, { origin: eyes, radius: 150, delay: 1200 }),
+    ];
+
+    // A fast flick of the pointer nearby puts the cat on alert: ears up, tail twitching.
+    let prev = null;
+    const watch = (event) => {
+      activity.current = Date.now();
+      if (event.pointerType === 'touch' || busy()) { prev = null; return; }
+      const now = performance.now();
+      if (prev && now > prev.t) {
+        const speed = Math.hypot(event.clientX - prev.x, event.clientY - prev.y) / (now - prev.t);
+        const box = touch.getBoundingClientRect();
+        const near = Math.hypot(event.clientX - (box.left + box.width / 2), event.clientY - (box.top + box.height / 2)) < 420;
+        if (near && speed > 1.8) { setAlert(true); later('alert', () => setAlert(false), 1800); }
+      }
+      prev = { x: event.clientX, y: event.clientY, t: now };
+    };
+
+    // Stroking the cat (moving across it, mouse or finger) starts a purr.
+    let stroke = 0, strokeAt = 0, strokePrev = null;
+    const pet = (event) => {
+      if (busy()) return;
+      const now = performance.now();
+      if (now - strokeAt > 600) { stroke = 0; strokePrev = null; }
+      if (strokePrev) {
+        const step = Math.hypot(event.clientX - strokePrev.x, event.clientY - strokePrev.y);
+        // Petting is unhurried; a fast swipe across the cat startles it instead.
+        if (step / Math.max(now - strokeAt, 1) < 1.5) stroke += step;
+      }
+      strokePrev = { x: event.clientX, y: event.clientY };
+      strokeAt = now;
+      if (stroke > 90) {
+        setPurr(true);
+        setAlert(false);
+        later('purr', () => setPurr(false), 1400);
+      }
+    };
+
     const wake = () => { activity.current = Date.now(); };
     const timer = window.setInterval(() => {
       if (!document.hidden && Date.now() - activity.current > 45000 && actionRef.current === 'idle') setAction('sleep');
     }, 5000);
-    window.addEventListener('pointermove', wake, { passive: true });
+    window.addEventListener('pointermove', watch, { passive: true });
     window.addEventListener('keydown', wake);
-    return () => { stop(); clearInterval(timer); window.removeEventListener('pointermove', wake); window.removeEventListener('keydown', wake); };
+    touch.addEventListener('pointermove', pet, { passive: true });
+    return () => {
+      stops.forEach((stop) => stop());
+      Object.values(timers).forEach(clearTimeout);
+      clearInterval(timer);
+      window.removeEventListener('pointermove', watch);
+      window.removeEventListener('keydown', wake);
+      touch.removeEventListener('pointermove', pet);
+      setAlert(false); setPurr(false); setSlowBlink(false);
+    };
   }, [interactive, still]);
 
   function perform(next) {
@@ -73,6 +142,12 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
           {/* Neck fur under the back of the head, so turning the head never uncovers a gap. */}
           <rect x="1030" y="300" width="150" height="170" fill="#fff" />
         </mask>
+        {/* Soft-edged eye sockets: a copy of the eyes slides inside them to look around. */}
+        <radialGradient id={`${id}-socket-fade`}><stop offset="0.55" stopColor="#fff" /><stop offset="1" stopColor="#000" /></radialGradient>
+        <mask id={`${id}-sockets`} maskUnits="userSpaceOnUse" x="0" y="0" width="1600" height="1200">
+          <ellipse cx="1226" cy="302" rx="38" ry="24" fill={`url(#${id}-socket-fade)`} />
+          <ellipse cx="1364" cy="300" rx="38" ry="24" fill={`url(#${id}-socket-fade)`} />
+        </mask>
         <clipPath id={`${id}-head`}><path d="M1060 245L1180 235L1190 145H1350V230H1500V470H1060Z" /></clipPath>
         <clipPath id={`${id}-ear-left`}><path d="M1085 60L1198 62L1232 246L1085 264Z" /></clipPath>
         <clipPath id={`${id}-ear-right`}><path d="M1340 60H1500V255L1330 243Z" /></clipPath>
@@ -90,6 +165,7 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
         <g className="rig-leg leg-front-near" mask={clip('front-near')}>{source}</g>
         <g className="rig-head">
           <g clipPath={clip('head')}>{source}</g>
+          <g mask={clip('sockets')}><g className="rig-iris">{source}</g></g>
           <g className="rig-ear ear-left" clipPath={clip('ear-left')}>{source}</g>
           <g className="rig-ear ear-right" clipPath={clip('ear-right')}>{source}</g>
           <g className="blink-motion"><image href="/cat/animated/eyes-display.png" x="1160" y="235" width="280" height="120" /></g>
@@ -98,10 +174,11 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
     </svg>
     <img className="cat-sleep-pose" src="/cat/animated/cat-sleep.webp" width="1456" height="1088" alt="" aria-hidden="true" />
     <span className="cat-zzz" aria-hidden="true">z z z</span>
+    <span className="cat-purr-note" aria-hidden="true">prrr…</span>
   </>;
 
   const actor = interactive ? <button type="button" className="cat-touch" onClick={() => perform(action === 'sleep' ? 'sleep' : 'wave')} aria-label={action === 'sleep' ? 'Wake the cat' : 'Say hello to the cat'}>{graphic}</button> : <div className="cat-touch">{graphic}</div>;
-  return <div ref={root} className={`animated-cat motion-scene cat-${action} ${still ? 'cat-still' : ''} ${meadow ? 'cat-meadow' : ''} ${facingLeft ? 'cat-facing-left' : ''} ${className}`}
+  return <div ref={root} className={`animated-cat motion-scene cat-${action} ${alert ? 'cat-alert' : ''} ${purr ? 'cat-purr' : ''} ${slowBlink ? 'cat-slowblink' : ''} ${still ? 'cat-still' : ''} ${meadow ? 'cat-meadow' : ''} ${facingLeft ? 'cat-facing-left' : ''} ${className}`}
     style={meadow ? { '--cat-position': atRight ? 'var(--meadow-span)' : '0%', '--walk-from': atRight ? 'var(--meadow-span)' : '0%', '--walk-to': atRight ? '0%' : 'var(--meadow-span)' } : undefined}
     onAnimationEnd={event => {
       if (event.animationName === 'meadow-stroll') { setAtRight(value => !value); setAction('idle'); activity.current = Date.now(); }
@@ -121,6 +198,6 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
       <button type="button" onClick={() => perform('stretch')} disabled={still || (meadow && action === 'walk')}>Stretch</button>
       <button type="button" onClick={() => perform('sleep')} disabled={meadow && action === 'walk'}>{action === 'sleep' ? 'Wake' : 'Nap'}</button>
     </div>}
-    {meadow && <p className="meadow-status" role="status">{action === 'walk' ? 'A little wander through the grass.' : action === 'stretch' ? 'A long stretch, paws forward.' : action === 'sleep' ? 'A sunny spot for a nap. Tap the cat to wake up.' : 'Tap the cat to say hello, or choose a little adventure.'}</p>}
+    {meadow && <p className="meadow-status" role="status">{action === 'walk' ? 'A little wander through the grass.' : action === 'stretch' ? 'A long stretch, paws forward.' : action === 'sleep' ? 'A sunny spot for a nap. Tap the cat to wake up.' : purr ? 'Purring. Keep going.' : 'Stroke the cat, tap to say hello, or choose a little adventure.'}</p>}
   </div>;
 }
