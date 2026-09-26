@@ -4,8 +4,8 @@
 
 The hero paintings and the layered cat now respond to the pointer in perspective instead of sitting flat.
 
-- Hero scenes (every page) tilt toward the pointer, up to 7° across and 5° vertically, inside a 1400px perspective. The steam, lamp glow and dust drift a little further than the painting, so they read as a nearer layer. See components/SceneTilt.js and the "scene depth" rules in app/globals.css.
-- The sidebar and meadow cats turn their whole body toward the pointer, up to 12°, while the head leads by sliding, tipping and nodding. When the meadow cat is walking back mirrored, it still turns toward the pointer rather than away. The body turn uses the standalone CSS rotate property, so it stacks with the walk, bob and breathing animations instead of being overwritten by them.
+- Hero scenes (every page) tilt toward the pointer, up to 12° across and 8° vertically, inside a 1000px perspective. The steam, lamp glow and dust drift a little further than the painting, so they read as a nearer layer. See components/SceneTilt.js and the "scene depth" rules in app/globals.css.
+- The sidebar and meadow cats turn their whole body toward the pointer, up to 20°, while the head leads by tipping and nodding. The body layer now also paints the neck under the back of the head, so a turned head never uncovers a gap. When the meadow cat is walking back mirrored, it still turns toward the pointer rather than away. The body turn uses the standalone CSS rotate property, so it stacks with the walk, bob and breathing animations instead of being overwritten by them.
 - One shared helper, lib/follow.js, drives all of it. It uses time-based easing with a 160 ms time constant, about 95 % settled in 450 ms at any frame rate. It rests when the pointer leaves the window, the tab hides, or the scene scrolls out of view. Touch input is ignored.
 - Timing: the hero notes now arrive one after another, 150 ms apart, after the headline.
 - Pause motion and prefers-reduced-motion flatten every tilt and turn to rest.

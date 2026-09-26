@@ -1230,10 +1230,10 @@ a { color: inherit; }
 /* ---- scene depth: the painting tilts toward the pointer in perspective, and the
    steam, lamp glow and dust sit on a nearer layer so they drift a touch further.
    --tilt-x / --tilt-y are -1..1, eased every frame by components/SceneTilt.js. ---- */
-.desk { perspective: 1400px; }
+.desk { perspective: 1000px; }
 .scene-tilt { --tilt-x: 0; --tilt-y: 0; }
 .desk-canvas.scene-tilt {
-  transform: rotateY(calc(var(--tilt-x) * 7deg)) rotateX(calc(var(--tilt-y) * -5deg));
+  transform: rotateY(calc(var(--tilt-x) * 12deg)) rotateX(calc(var(--tilt-y) * -8deg));
   will-change: transform;
   /* A transformed element is its own compositing group, which would stop the
      painting's multiply blend reaching the page. Blend the whole group instead. */
@@ -1241,7 +1241,7 @@ a { color: inherit; }
 }
 :root[data-theme="dark"] .desk-canvas.scene-tilt { mix-blend-mode: normal; }
 /* The light and dust drift a little further than the painting, so they read as nearer. */
-.scene-tilt .desk-atmosphere { transform: translate(calc(var(--tilt-x) * 14px), calc(var(--tilt-y) * 10px)); }
+.scene-tilt .desk-atmosphere { transform: translate(calc(var(--tilt-x) * 26px), calc(var(--tilt-y) * 18px)); }
 :root[data-motion="paused"] .desk-canvas.scene-tilt,
 :root[data-motion="paused"] .scene-tilt .desk-atmosphere { transform: none; }
 .desk-steam { position: absolute; left: 52%; top: 53%; width: 7%; height: 17%; }
@@ -1349,15 +1349,15 @@ button.cat-touch { cursor: pointer; border-radius: 18px; }
    meadow cat is mirrored so it still turns toward the pointer, not away. */
 .animated-cat { --cat-yaw: 0; --cat-pitch: 0; --cat-flip: 1; }
 .cat-facing-left { --cat-flip: -1; }
-.cat-touch { perspective: 900px; }
+.cat-touch { perspective: 700px; }
 /* The body turn uses the standalone `rotate` property, so it stacks with the walk,
    bob and breathing animations (which animate `transform`) instead of being
    overwritten by them and snapping back when they end. The easing lives in JS. */
-.mascot { transform-origin: 50% 82%; rotate: y calc(var(--cat-yaw) * var(--cat-flip) * 12deg); }
+.mascot { transform-origin: 50% 82%; rotate: y calc(var(--cat-yaw) * var(--cat-flip) * 20deg); }
 /* The head leads the body: it slides and tips toward the pointer and nods up or down. */
 .rig-head {
   transform-origin: 1260px 445px;
-  transform: translate(calc(var(--cat-yaw) * var(--cat-flip) * 22px), calc(var(--cat-pitch) * 10px)) rotate(calc(var(--cat-yaw) * var(--cat-flip) * 3deg));
+  transform: translate(calc(var(--cat-yaw) * var(--cat-flip) * 12px), calc(var(--cat-pitch) * 14px)) rotate(calc(var(--cat-yaw) * var(--cat-flip) * 6deg));
 }
 .rig-ear { transform-box: view-box; }
 .ear-left { transform-origin: 1175px 240px; animation: cat-ear-left 11s ease-in-out infinite; }

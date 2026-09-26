@@ -70,6 +70,8 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
           <path d="M0 0H1065V450H1600V815H0Z" fill={`url(#${id}-torso-fade)`} />
           {/* The belly between the rear and front legs (it ends near y 836) stays with the torso. */}
           <rect x="795" y="770" width="200" height="110" fill="#fff" />
+          {/* Neck fur under the back of the head, so turning the head never uncovers a gap. */}
+          <rect x="1030" y="300" width="150" height="170" fill="#fff" />
         </mask>
         <clipPath id={`${id}-head`}><path d="M1060 245L1180 235L1190 145H1350V230H1500V470H1060Z" /></clipPath>
         <clipPath id={`${id}-ear-left`}><path d="M1085 60L1198 62L1232 246L1085 264Z" /></clipPath>
