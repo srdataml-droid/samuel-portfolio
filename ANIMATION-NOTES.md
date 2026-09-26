@@ -12,6 +12,7 @@ The cats now react like cats, not just turn toward the pointer.
 - Petting: slow back-and-forth strokes across the cat, mouse or finger, make it purr. A single pass on the way somewhere else does not count. Its eyes close, its ears relax sideways, its head leans in, its tail lifts and sways slowly, its breathing quickens, and a small "prrr…" appears. A fast swipe counts as startling, not petting.
 - Slow blink: resting the pointer near a cat's face for about 1.2 s earns a slow blink, the cat's sign of trust. The painted hero cats do the same.
 - Pause motion and reduced motion switch all of this off.
+- The sidebar cat is now 288 by 216 pixels, up from 208 by 156. The rail widened from 256 to 288 pixels and the cat runs edge to edge. On screens under 900 pixels tall, the rail drops its quote and tightens the nav. Under 800, it also drops the caption, so the cat and its buttons stay on screen down to 700 pixels tall.
 
 Verified in headless Chromium against a production build. Close-up captures confirmed iris movement in four directions on the layered cat and both directions on the hero cat. Separate runs confirmed that a fast swipe triggers alert and slow strokes trigger purr. The slow blink, idle glances and Pause were also checked. After a real walk there and back, the mirrored meadow cat's eyes still look toward the pointer. The console showed no errors.
 
