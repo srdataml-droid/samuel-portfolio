@@ -104,7 +104,7 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
         </g>
       </g>
     </svg>
-    <img className="cat-sleep-pose" src="/cat/animated/cat-sleep.png" width="1456" height="1088" alt="" aria-hidden="true" />
+    <img className="cat-sleep-pose" src="/cat/animated/cat-sleep.webp" width="1456" height="1088" alt="" aria-hidden="true" />
     <span className="cat-zzz" aria-hidden="true">z z z</span>
   </>;
 
@@ -116,7 +116,7 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
       if (['cat-wave', 'cat-stretch', 'cat-stroll', 'meadow-stretch'].includes(event.animationName)) setAction('idle');
     }}>
     {meadow ? <div className="meadow-stage">
-      <img className="meadow-landscape" src="/scenes/meadow.png" alt="A quiet grassy clearing with a path between the trees" width="2048" height="683" />
+      <img className="meadow-landscape" src="/scenes/meadow.webp" alt="A quiet grassy clearing with a path between the trees" width="2048" height="683" />
       <div className="meadow-traveller"><span className="meadow-shadow" aria-hidden="true" />{actor}</div>
       <svg className="meadow-grasses" viewBox="0 0 900 300" preserveAspectRatio="none" aria-hidden="true">
         {[20,48,78,112,740,780,820,858,886].map((x,i) => <g key={x} className="grass-tuft" style={{ transformOrigin: `${x}px 300px`, animationDelay: `${-i*.4}s` }}>

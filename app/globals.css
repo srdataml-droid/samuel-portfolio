@@ -41,9 +41,9 @@
   --radius-lg: 22px;
 
   /* type */
-  --serif: "Playfair Display", Georgia, "Times New Roman", serif;
-  --sans:  "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --hand:  "Caveat", "Segoe Script", "Bradley Hand", cursive;
+  --serif: var(--font-serif, "Playfair Display"), Georgia, "Times New Roman", serif;
+  --sans:  var(--font-sans, "Inter"), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --hand:  var(--font-hand, "Caveat"), "Segoe Script", "Bradley Hand", cursive;
 
   color-scheme: light;
 }

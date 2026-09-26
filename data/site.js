@@ -1,8 +1,23 @@
 /**
- * Single source of truth for navigation, social links and service copy.
- * Sidebar, mobile drawer and footer all read from here so the three can
- * never drift apart.
+ * Single source of truth for site identity, navigation, social links and
+ * service copy. Sidebar, mobile drawer, footer, metadata and sitemap all
+ * read from here so none of them can drift apart.
  */
+
+export const site = {
+  name: 'Samuel',
+  title: 'Samuel — AI/ML Engineer & Builder',
+  description:
+    'Samuel builds AI/ML systems, experiments, and useful software. A small, curious corner of the internet.',
+  /**
+   * Canonical origin, used for Open Graph URLs, robots.txt and the sitemap.
+   * Set NEXT_PUBLIC_SITE_URL in the deployment environment; the fallback is
+   * only so local builds succeed.
+   */
+  url: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+  /** Placeholder until a real inbox exists. Every mailto: on the site reads this. */
+  email: 'hello@example.com',
+};
 
 export const nav = [
   { label: 'Home',            href: '/',          icon: 'Home' },
@@ -13,6 +28,9 @@ export const nav = [
   { label: 'Book a Call',     href: '/#book',     icon: 'Calendar' },
   { label: 'Talk to Samuel',  action: 'chat',     icon: 'Chat' },
 ];
+
+/** Real routes only: what the footer and the sitemap list. */
+export const pages = nav.filter((item) => item.href && !item.href.includes('#'));
 
 /** Replace the `#` placeholders once the real accounts are ready. */
 export const socials = [

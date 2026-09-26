@@ -1,10 +1,18 @@
 import { socials } from '@/data/site';
 import * as Icons from './Icons';
 
-export default function Socials({ className = 'socials', size = 18 }) {
+/**
+ * The social icon row, shared by the sidebar, the mobile drawer and the
+ * footer. `children` lets a caller append extra links (the footer adds email).
+ * Placeholder entries (`href: '#'`) are hidden rather than rendered as dead links.
+ */
+export default function Socials({ className = 'socials', size = 18, children }) {
+  const live = socials.filter(({ href }) => href && href !== '#');
+  if (live.length === 0 && !children) return null;
+
   return (
     <div className={className}>
-      {socials.map(({ label, href, icon }) => {
+      {live.map(({ label, href, icon }) => {
         const Icon = Icons[icon];
         return (
           <a
@@ -18,6 +26,7 @@ export default function Socials({ className = 'socials', size = 18 }) {
           </a>
         );
       })}
+      {children}
     </div>
   );
 }

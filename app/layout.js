@@ -1,13 +1,32 @@
 import './globals.css';
+import { Caveat, Inter, Playfair_Display } from 'next/font/google';
 import Shell from '@/components/Shell';
+import { site } from '@/data/site';
+
+/**
+ * Fonts are self-hosted by next/font: no request to Google at runtime, no
+ * render-blocking stylesheet, and a size-matched fallback so text does not
+ * jump when the real face arrives. globals.css reads the CSS variables.
+ */
+const serif = Playfair_Display({ subsets: ['latin'], weight: ['400', '500', '700', '900'], variable: '--font-serif', display: 'swap' });
+const sans = Inter({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--font-sans', display: 'swap' });
+const hand = Caveat({ subsets: ['latin'], weight: ['400', '600'], variable: '--font-hand', display: 'swap' });
 
 export const metadata = {
+  metadataBase: new URL(site.url),
   title: {
-    default: 'Samuel — AI/ML Engineer & Builder',
-    template: '%s · Samuel',
+    default: site.title,
+    template: `%s · ${site.name}`,
   },
-  description:
-    'Samuel builds AI/ML systems, experiments, and useful software. A small, curious corner of the internet.',
+  description: site.description,
+  openGraph: {
+    type: 'website',
+    siteName: site.name,
+    title: site.title,
+    description: site.description,
+    images: [{ url: '/scenes/home.png', width: 760, height: 316, alt: 'The cat at a sunlit desk beside a laptop and a stack of books.' }],
+  },
+  twitter: { card: 'summary_large_image' },
 };
 
 export const viewport = {
@@ -36,15 +55,9 @@ const themeScript = `
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={`${serif.variable} ${sans.variable} ${hand.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700;900&family=Inter:wght@400;500;600;700&family=Caveat:wght@400;600&display=swap"
-        />
       </head>
       <body>
         <Shell>{children}</Shell>

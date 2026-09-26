@@ -29,13 +29,13 @@ export default function HideAndSeek() {
           }
         }}>
         <div key={`cat-${round}`} className="seek-cat"><AnimatedCat interactive={false} /></div>
-        <div key={`corgi-${round}`} className="seek-corgi"><img src="/cat/animated/corgi-sitting.png" alt="" width="1024" height="1024" /></div>
+        <div key={`corgi-${round}`} className="seek-corgi"><img src="/cat/animated/corgi-sitting.webp" alt="" width="1024" height="1024" /></div>
         <div className="seek-books"><span>Little mysteries</span><span>Big ideas</span><span>A kinder world</span></div>
         <span className="seek-question">?</span>
         <span className="seek-found">There you are.</span>
       </div>
       <p className="hand">A small game of hide-and-seek.</p>
-      <button className="motion-control seek-play" onClick={playing ? () => { setPlaying(false); setFinished(true); } : play}>
+      <button type="button" className="motion-control seek-play" onClick={playing ? () => { setPlaying(false); setFinished(true); } : play}>
         {playing ? 'Skip to the reveal' : finished ? 'Play again' : 'Play hide-and-seek'}
       </button>
       <span className="sr-only" role="status">{finished ? 'The corgi found the cat peeking over the books.' : ''}</span>

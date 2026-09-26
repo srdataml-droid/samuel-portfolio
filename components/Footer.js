@@ -2,16 +2,9 @@ import Link from 'next/link';
 import HideAndSeek from './HideAndSeek';
 import AnimatedCat from './AnimatedCat';
 import MotionControls from './MotionControls';
-import { socials } from '@/data/site';
-import * as Icons from './Icons';
-
-const links = [
-  ['Home', '/'],
-  ['Projects', '/projects'],
-  ['Lab', '/lab'],
-  ['Services', '/services'],
-  ['About', '/about'],
-];
+import Socials from './Socials';
+import { pages, site } from '@/data/site';
+import { Mail } from './Icons';
 
 export default function Footer() {
   return (
@@ -22,19 +15,11 @@ export default function Footer() {
         </p>
 
         <div style={{ display: 'grid', gap: 12, justifyItems: 'center' }}>
-          <div className="footer-socials">
-            {socials.map(({ label, href, icon }) => {
-              const Icon = Icons[icon];
-              return (
-                <a key={label} href={href} aria-label={label}>
-                  <Icon width={19} height={19} />
-                </a>
-              );
-            })}
-            <a href="mailto:hello@example.com" aria-label="Email">
-              <Icons.Mail width={19} height={19} />
+          <Socials className="footer-socials" size={19}>
+            <a href={`mailto:${site.email}`} aria-label="Email">
+              <Mail width={19} height={19} />
             </a>
-          </div>
+          </Socials>
           <p className="muted" style={{ fontSize: 13 }}>
             Let&rsquo;s connect and build something good.
           </p>
@@ -50,10 +35,10 @@ export default function Footer() {
       </section>
 
       <div className="footer-bottom">
-        <span>© {new Date().getFullYear()} Samuel. Built with curiosity.</span>
+        <span>© {new Date().getFullYear()} {site.name}. Built with curiosity.</span>
         <nav className="footer-nav" aria-label="Footer">
-          {links.map(([label, href]) => (
-            <Link key={href} href={href}>{label}</Link>
+          {pages.map(({ label, href }) => (
+            <Link key={href} href={href}>{label.replace(' / Videos', '')}</Link>
           ))}
         </nav>
       </div>

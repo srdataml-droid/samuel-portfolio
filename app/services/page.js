@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import DeskScene from '@/components/DeskScene';
-import { services } from '@/data/site';
+import { services, site } from '@/data/site';
 import * as Icons from '@/components/Icons';
 
 export const metadata = {
@@ -76,7 +76,7 @@ export default function ServicesPage() {
             <Icons.Calendar width={22} height={22} />
             <h3>Book a Call</h3>
             <p>Got a project, an idea, or just want to chat? Let&rsquo;s find time.</p>
-            <a className="button primary" href="mailto:hello@example.com?subject=Let%27s%20find%20a%20time">
+            <a className="button primary" href={`mailto:${site.email}?subject=Let%27s%20find%20a%20time`}>
               Pick a Time <Icons.Arrow className="arrow" width={15} height={15} />
             </a>
             <p className="muted" style={{ fontSize: 12 }}>
