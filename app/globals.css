@@ -1421,8 +1421,11 @@ button.cat-touch { cursor: pointer; border-radius: 18px; }
 .cat-stretch .rig-body { animation: cat-stretch 2.4s ease-in-out; }
 @keyframes cat-stretch { 0%,100% { transform: scale(1); } 45%,65% { transform: scale(1.025,.94); } }
 .cat-walk .articulated-cat { animation: cat-stroll 4s ease-in-out; }
-.cat-walk .leg-front-near, .cat-walk .leg-rear-far { animation: cat-step .5s ease-in-out 8; }
-.cat-walk .leg-front-far, .cat-walk .leg-rear-near { animation: cat-step .5s ease-in-out 8; animation-delay: -.25s; }
+/* Same four-beat lateral sequence for the walk-in-place: left hind, left fore, right hind, right fore. */
+.cat-walk .rig-leg { animation: cat-step .5s ease-in-out 8; }
+.cat-walk .leg-front-near { animation-delay: .125s; }
+.cat-walk .leg-rear-far { animation-delay: .25s; }
+.cat-walk .leg-front-far { animation-delay: .375s; }
 @keyframes cat-step { 0%,100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg) translateY(-8px); } }
 @keyframes cat-stroll { 0%,100% { transform: translateX(0) scale(1); } 20% { transform: translateX(-4%) scale(.94); } 75% { transform: translateX(4%) scale(.94); } }
 .cat-sleep-pose { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; pointer-events: none; transition: opacity .5s ease; }
@@ -1472,9 +1475,21 @@ button.cat-touch { cursor: pointer; border-radius: 18px; }
 .cat-meadow.cat-walk .articulated-cat { animation: meadow-body-bob calc(var(--gait) / 2) ease-in-out infinite; }
 .cat-meadow.cat-walk .meadow-traveller { animation: meadow-stroll 7s linear both; }
 .cat-meadow.cat-walk .meadow-shadow { animation: meadow-shadow-pulse calc(var(--gait) / 2) ease-in-out infinite; }
-/* Diagonal pairs step together; the second pair starts half a cycle late from a planted stance. */
+/* A cat's walk is a four-beat lateral sequence: left hind, left fore, right hind, right fore, each a
+   quarter-cycle apart, with two or three paws on the ground at any moment (the near side is the cat's
+   left). Each leg starts from standing in turn, so the walk begins one paw at a time. Stride geometry
+   is unchanged: a planted paw still sweeps back exactly as far as the body travels. */
 .cat-meadow.cat-walk .rig-leg { animation: meadow-step var(--gait) linear infinite; }
-.cat-meadow.cat-walk .leg-front-far, .cat-meadow.cat-walk .leg-rear-near { animation-delay: calc(var(--gait) / 2); }
+.cat-meadow.cat-walk .leg-rear-near { animation-delay: 0s; }
+.cat-meadow.cat-walk .leg-front-near { animation-delay: calc(var(--gait) * .25); }
+.cat-meadow.cat-walk .leg-rear-far { animation-delay: calc(var(--gait) * .5); }
+.cat-meadow.cat-walk .leg-front-far { animation-delay: calc(var(--gait) * .75); }
+/* The body rises and dips with each footfall, but a cat holds its head level: the head counters the bob.
+   The tail sways once per stride as a counterbalance. */
+.cat-meadow.cat-walk .rig-head { animation: meadow-head-steady calc(var(--gait) / 2) ease-in-out infinite; }
+@keyframes meadow-head-steady { 0%, 100% { translate: 0 0; } 50% { translate: 0 12px; } }
+.cat-meadow.cat-walk .tail-motion { animation: meadow-tail-walk var(--gait) ease-in-out infinite; }
+@keyframes meadow-tail-walk { 0%, 100% { transform: rotate(3.5deg); } 50% { transform: rotate(-3.5deg); } }
 /* Play-bow stretch: the body tips forward about the planted rear paw (420,1085); the front legs reach
    forward far enough (≈ -44° relative to the 6° tilt) that the front paws stay on the ground. */
 .cat-meadow.cat-stretch .rig-body { transform-origin: 420px 1085px; animation: meadow-stretch 3.8s ease-in-out; }
