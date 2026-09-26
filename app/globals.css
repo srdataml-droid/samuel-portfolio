@@ -1226,6 +1226,24 @@ a { color: inherit; }
 .desk-canvas { position: relative; flex: 0 0 112%; }
 .desk-canvas .desk-art { width: 100%; }
 .desk-atmosphere { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+
+/* ---- scene depth: the painting tilts toward the pointer in perspective, and the
+   steam, lamp glow and dust sit on a nearer layer so they drift a touch further.
+   --tilt-x / --tilt-y are -1..1, eased every frame by components/SceneTilt.js. ---- */
+.desk { perspective: 1400px; }
+.scene-tilt { --tilt-x: 0; --tilt-y: 0; }
+.desk-canvas.scene-tilt {
+  transform: rotateY(calc(var(--tilt-x) * 7deg)) rotateX(calc(var(--tilt-y) * -5deg));
+  will-change: transform;
+  /* A transformed element is its own compositing group, which would stop the
+     painting's multiply blend reaching the page. Blend the whole group instead. */
+  mix-blend-mode: multiply;
+}
+:root[data-theme="dark"] .desk-canvas.scene-tilt { mix-blend-mode: normal; }
+/* The light and dust drift a little further than the painting, so they read as nearer. */
+.scene-tilt .desk-atmosphere { transform: translate(calc(var(--tilt-x) * 14px), calc(var(--tilt-y) * 10px)); }
+:root[data-motion="paused"] .desk-canvas.scene-tilt,
+:root[data-motion="paused"] .scene-tilt .desk-atmosphere { transform: none; }
 .desk-steam { position: absolute; left: 52%; top: 53%; width: 7%; height: 17%; }
 .desk-steam i { position: absolute; bottom: 0; width: 23%; height: 80%; border-left: 2px solid rgba(255,250,222,.7); border-radius: 50%; filter: blur(1px); opacity: 0; animation: desk-steam 4.8s ease-out infinite; }
 .desk-steam i:nth-child(2) { left: 30%; animation-delay: -1.6s; }
@@ -1243,6 +1261,11 @@ a { color: inherit; }
 @keyframes gentle-arrival { from { opacity: .55; transform: translateY(9px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: no-preference) {
   .hero-copy, .page-hero-copy { animation: gentle-arrival .65s ease-out both; }
+  .hero-note { animation: gentle-arrival .6s ease-out both; }
+  .hero-note:nth-child(1) { animation-delay: .25s; }
+  .hero-note:nth-child(2) { animation-delay: .4s; }
+  .hero-note:nth-child(3) { animation-delay: .55s; }
+  .hero-note:nth-child(4) { animation-delay: .7s; }
   .section-head.motion-arrived { animation: gentle-arrival .6s ease-out both; }
   .button .arrow { transition: transform .2s ease; }
   .button:hover .arrow { transform: translateX(3px); }
@@ -1256,7 +1279,8 @@ a { color: inherit; }
 @media (max-width: 1000px) { .desk-canvas { flex-basis: 100%; } }
 @media (max-width: 860px) { .footer-mascot { justify-self: start; width: 150px; } }
 @media (prefers-reduced-motion: reduce) {
-  .tail-motion, .blink-motion, .desk-atmosphere *, .hero-copy, .page-hero-copy, .section-head.motion-arrived { animation: none !important; }
+  .tail-motion, .blink-motion, .desk-atmosphere *, .hero-copy, .page-hero-copy, .hero-note, .section-head.motion-arrived { animation: none !important; }
+  .desk-canvas.scene-tilt, .scene-tilt .desk-atmosphere { transform: none !important; }
   .blink-motion, .desk-steam, .desk-mote { opacity: 0; }
   .desk-glow { opacity: .35; }
 }
@@ -1321,7 +1345,20 @@ button.cat-touch { cursor: pointer; border-radius: 18px; }
 .cat-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 5px; padding: 5px 0 10px; }
 .cat-actions button { font: inherit; font-size: 11px; color: inherit; background: transparent; border: 1px solid currentColor; border-radius: 20px; padding: 5px 9px; cursor: pointer; }
 .cat-actions button:disabled { opacity: .45; cursor: default; }
-.rig-head { transform-origin: 1260px 445px; transform: translateY(var(--cat-nod,0px)) rotate(var(--cat-look,0deg)); transition: transform .25s ease-out; }
+/* --cat-yaw / --cat-pitch are -1..1 (eased by lib/follow.js). --cat-flip is -1 when the
+   meadow cat is mirrored so it still turns toward the pointer, not away. */
+.animated-cat { --cat-yaw: 0; --cat-pitch: 0; --cat-flip: 1; }
+.cat-facing-left { --cat-flip: -1; }
+.cat-touch { perspective: 900px; }
+/* The body turn uses the standalone `rotate` property, so it stacks with the walk,
+   bob and breathing animations (which animate `transform`) instead of being
+   overwritten by them and snapping back when they end. The easing lives in JS. */
+.mascot { transform-origin: 50% 82%; rotate: y calc(var(--cat-yaw) * var(--cat-flip) * 12deg); }
+/* The head leads the body: it slides and tips toward the pointer and nods up or down. */
+.rig-head {
+  transform-origin: 1260px 445px;
+  transform: translate(calc(var(--cat-yaw) * var(--cat-flip) * 22px), calc(var(--cat-pitch) * 10px)) rotate(calc(var(--cat-yaw) * var(--cat-flip) * 3deg));
+}
 .rig-ear { transform-box: view-box; }
 .ear-left { transform-origin: 1175px 240px; animation: cat-ear-left 11s ease-in-out infinite; }
 .ear-right { transform-origin: 1400px 240px; animation: cat-ear-right 13s ease-in-out infinite; }
@@ -1349,10 +1386,12 @@ button.cat-touch { cursor: pointer; border-radius: 18px; }
 .cat-sleep .cat-zzz { animation: sleep-letters 4s ease-in-out infinite; }
 @keyframes sleeping-breath { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(1.018); } }
 @keyframes sleep-letters { 0%,100% { opacity: .1; transform: translateY(0); } 50% { opacity: .7; transform: translateY(-5px); } }
-.cat-still .rig-head { transform: none; transition: none; }
+.cat-still .rig-head { transform: none; }
+.cat-still .mascot { rotate: none; }
 @media (prefers-reduced-motion: reduce) {
   .rig-ear, .rig-leg, .rig-body, .cat-walk .articulated-cat, .cat-sleep-pose, .cat-zzz { animation: none !important; transition: none !important; }
   .rig-head { transform: none; transition: none; }
+  .mascot { rotate: none; }
   .cat-sleep .cat-zzz { opacity: .5; }
 }
 

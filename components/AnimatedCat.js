@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { followPointer } from '@/lib/follow';
 
 export default function AnimatedCat({ className = '', interactive = true, meadow = false }) {
   const id = useId().replace(/:/g, '');
@@ -31,30 +32,19 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
 
   useEffect(() => {
     if (!interactive || still) return;
-    let frame = 0;
-    const wake = () => {
-      activity.current = Date.now();
-    };
-    const move = event => {
-      wake();
-      if (frame || event.pointerType === 'touch') return;
-      const x = event.clientX, y = event.clientY;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        const el = root.current;
-        if (!el || document.hidden || el.closest('[data-in-view="false"]')) return;
-        const box = el.getBoundingClientRect();
-        if (box.bottom < 0 || box.top > innerHeight) return;
-        el.style.setProperty('--cat-look', `${Math.max(-2.5, Math.min(2.5, (x - box.left - box.width / 2) / 160))}deg`);
-        el.style.setProperty('--cat-nod', `${Math.max(-5, Math.min(5, (y - box.top - box.height / 2) / 70))}px`);
-      });
-    };
+    const el = root.current;
+    // Eased pointer follow: the whole cat turns in perspective and the head leads (see globals.css).
+    const stop = followPointer(el, ({ x, y }) => {
+      el.style.setProperty('--cat-yaw', x.toFixed(3));
+      el.style.setProperty('--cat-pitch', y.toFixed(3));
+    });
+    const wake = () => { activity.current = Date.now(); };
     const timer = window.setInterval(() => {
       if (!document.hidden && Date.now() - activity.current > 45000 && actionRef.current === 'idle') setAction('sleep');
     }, 5000);
-    window.addEventListener('pointermove', move, { passive: true });
+    window.addEventListener('pointermove', wake, { passive: true });
     window.addEventListener('keydown', wake);
-    return () => { cancelAnimationFrame(frame); clearInterval(timer); window.removeEventListener('pointermove', move); window.removeEventListener('keydown', wake); };
+    return () => { stop(); clearInterval(timer); window.removeEventListener('pointermove', wake); window.removeEventListener('keydown', wake); };
   }, [interactive, still]);
 
   function perform(next) {
