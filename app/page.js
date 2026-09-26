@@ -4,7 +4,7 @@ import EmptyState, { SlotGrid } from '@/components/EmptyState';
 import ProjectCard from '@/components/ProjectCard';
 import VideoCard from '@/components/VideoCard';
 import { projects, videos } from '@/data/content';
-import { services } from '@/data/site';
+import { services, site } from '@/data/site';
 import * as Icons from '@/components/Icons';
 
 const featuredProjects = projects.slice(0, 4);
@@ -186,7 +186,7 @@ export default function HomePage() {
             <Icons.Calendar width={22} height={22} />
             <h3>Book a Call</h3>
             <p>Got a project, an idea, or just want to chat? Let&rsquo;s find time.</p>
-            <a className="button primary" href="mailto:hello@example.com?subject=Let%27s%20find%20a%20time">
+            <a className="button primary" href={`mailto:${site.email}?subject=Let%27s%20find%20a%20time`}>
               Pick a Time <Icons.Arrow className="arrow" width={15} height={15} />
             </a>
             <p className="muted" style={{ fontSize: 12 }}>
@@ -216,7 +216,7 @@ export default function HomePage() {
           </p>
         </div>
         <div className="contact-actions">
-          <a className="button primary" href="mailto:hello@example.com">
+          <a className="button primary" href={`mailto:${site.email}`}>
             Say Hello <Icons.Arrow className="arrow" width={15} height={15} />
           </a>
           <Link className="button ghost" href="/about">More about me</Link>
