@@ -8,7 +8,7 @@
 | Hind paws land in the front paws' prints ("direct registering") | [PetsCare, feline locomotion](https://www.petscare.com/news/post/cats-walking-feline-locomotion) | Stride geometry keeps planted paws from sliding |
 | Tail high with a slight curl means relaxed and friendly; low or tucked means anxious | [PetMD, cat body language](https://www.petmd.com/cat/behavior/cat-body-language) | Purring lifts the tail; tail sways as counterbalance while walking |
 | Ears forward is neutral or curious; turned out or flattened is anxious | [PetMD](https://www.petmd.com/cat/behavior/cat-body-language) | Ears swivel toward the pointer, perk when alert, relax sideways while purring |
-| Slow blink is a sign of trust | [Humphrey et al. 2020, Scientific Reports](https://www.nature.com/articles/s41598-020-73426-0) | Lingering near a cat's face earns a slow blink |
+| Slow blinking is a friendly signal: cats return it and approach more readily after one | [Humphrey et al. 2020, Scientific Reports](https://www.nature.com/articles/s41598-020-73426-0) | Lingering near a cat's face earns a slow blink |
 
 ## Generated frames (pending)
 
