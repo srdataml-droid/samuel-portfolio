@@ -10,7 +10,11 @@
 | Ears forward is neutral or curious; turned out or flattened is anxious | [PetMD](https://www.petmd.com/cat/behavior/cat-body-language) | Ears swivel toward the pointer, perk when alert, relax sideways while purring |
 | Slow blinking is a friendly signal: cats return it and approach more readily after one | [Humphrey et al. 2020, Scientific Reports](https://www.nature.com/articles/s41598-020-73426-0) | Lingering near a cat's face earns a slow blink |
 
-## Generated frames (pending)
+## The 3D cat (shipped)
+
+The meadow cat is now a rigged 3D model with a real head turn, jaw, tail chain, ears and eyelids. See ANIMATION-NOTES.md. The sidebar cat is still the layered painting.
+
+## Generated frames (optional, still pending)
 
 True head turns, jaw movement (yawn, meow) and fur that moves need new
 artwork, not the single painting moved around. The plan:

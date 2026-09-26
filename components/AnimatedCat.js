@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { followPointer, onPointerRest } from '@/lib/follow';
+import Cat3D from './Cat3D';
 
 export default function AnimatedCat({ className = '', interactive = true, meadow = false }) {
   const id = useId().replace(/:/g, '');
@@ -15,6 +16,7 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
   const [alert, setAlert] = useState(false);
   const [purr, setPurr] = useState(false);
   const [slowBlink, setSlowBlink] = useState(false);
+  const [threeD, setThreeD] = useState(false); // the 3D meadow cat has loaded and is drawing
   const activity = useRef(Date.now());
   const actionRef = useRef('idle');
   actionRef.current = action;
@@ -182,10 +184,11 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
     <img className="cat-sleep-pose" src="/cat/animated/cat-sleep.webp" width="1456" height="1088" alt="" aria-hidden="true" />
     <span className="cat-zzz" aria-hidden="true">z z z</span>
     <span className="cat-purr-note" aria-hidden="true">prrr…</span>
+    <span className="cat-meow-note" aria-hidden="true">mrrp?</span>
   </>;
 
   const actor = interactive ? <button type="button" className="cat-touch" onClick={() => perform(action === 'sleep' ? 'sleep' : 'wave')} aria-label={action === 'sleep' ? 'Wake the cat' : 'Say hello to the cat'}>{graphic}</button> : <div className="cat-touch">{graphic}</div>;
-  return <div ref={root} className={`animated-cat motion-scene cat-${action} ${alert ? 'cat-alert' : ''} ${purr ? 'cat-purr' : ''} ${slowBlink ? 'cat-slowblink' : ''} ${still ? 'cat-still' : ''} ${meadow ? 'cat-meadow' : ''} ${facingLeft ? 'cat-facing-left' : ''} ${className}`}
+  return <div ref={root} className={`animated-cat motion-scene cat-${action} ${alert ? 'cat-alert' : ''} ${purr ? 'cat-purr' : ''} ${slowBlink ? 'cat-slowblink' : ''} ${threeD ? 'cat-3d' : ''} ${still ? 'cat-still' : ''} ${meadow ? 'cat-meadow' : ''} ${facingLeft ? 'cat-facing-left' : ''} ${className}`}
     style={meadow ? { '--cat-position': atRight ? 'var(--meadow-span)' : '0%', '--walk-from': atRight ? 'var(--meadow-span)' : '0%', '--walk-to': atRight ? '0%' : 'var(--meadow-span)' } : undefined}
     onAnimationEnd={event => {
       if (event.animationName === 'meadow-stroll') { setAtRight(value => !value); setAction('idle'); activity.current = Date.now(); }
@@ -194,6 +197,7 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
     {meadow ? <div className="meadow-stage">
       <img className="meadow-landscape" src="/scenes/meadow.webp" alt="A quiet grassy clearing with a path between the trees" width="2048" height="683" />
       <div className="meadow-traveller"><span className="meadow-shadow" aria-hidden="true" />{actor}</div>
+      {interactive && <Cat3D root={root} onReady={setThreeD} />}
       <svg className="meadow-grasses" viewBox="0 0 900 300" preserveAspectRatio="none" aria-hidden="true">
         {[20,48,78,112,740,780,820,858,886].map((x,i) => <g key={x} className="grass-tuft" style={{ transformOrigin: `${x}px 300px`, animationDelay: `${-i*.4}s` }}>
           <path d={`M${x} 300 Q${x-12} 276 ${x-18} ${254+i%3*7} M${x} 300 Q${x+7} 267 ${x+17} ${247+i%2*9} M${x} 300 Q${x-2} 270 ${x+1} 258`} />
