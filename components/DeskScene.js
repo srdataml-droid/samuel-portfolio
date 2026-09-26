@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import HeroBlink from './HeroBlink';
+import SceneTilt from './SceneTilt';
 
 /**
  * The hero illustration: the actual painted desk scene from each page mockup,
@@ -32,7 +33,7 @@ export default function DeskScene({ scene = 'home', priority = false }) {
 
   return (
     <div className={`desk desk-${scene} motion-scene`}>
-      <div className="desk-canvas">
+      <SceneTilt className="desk-canvas">
       <Image
         className="desk-art"
         src={image.src}
@@ -48,7 +49,7 @@ export default function DeskScene({ scene = 'home', priority = false }) {
         <span className="desk-glow" />
         <span className="desk-mote mote-one" /><span className="desk-mote mote-two" /><span className="desk-mote mote-three" />
       </div>
-      </div>
+      </SceneTilt>
     </div>
   );
 }
