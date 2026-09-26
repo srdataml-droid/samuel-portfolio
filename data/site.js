@@ -15,8 +15,8 @@ export const site = {
    * only so local builds succeed.
    */
   url: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
-  /** Placeholder until a real inbox exists. Every mailto: on the site reads this. */
-  email: 'hello@example.com',
+  /** Every mailto: on the site reads this. */
+  email: 'samuelirenikase@gmail.com',
 };
 
 export const nav = [
@@ -32,12 +32,12 @@ export const nav = [
 /** Real routes only: what the footer and the sitemap list. */
 export const pages = nav.filter((item) => item.href && !item.href.includes('#'));
 
-/** Replace the `#` placeholders once the real accounts are ready. */
+/** Entries still set to `#` are hidden by the Socials component until a real URL exists. */
 export const socials = [
-  { label: 'GitHub',   href: '#', icon: 'GitHub' },
-  { label: 'LinkedIn', href: '#', icon: 'LinkedIn' },
-  { label: 'YouTube',  href: '#', icon: 'YouTube' },
-  { label: 'X',        href: '#', icon: 'XLogo' },
+  { label: 'GitHub',   href: 'https://github.com/srdataml-droid',                          icon: 'GitHub' },
+  { label: 'LinkedIn', href: 'https://www.linkedin.com/in/samuel-irenikase-582954364/',   icon: 'LinkedIn' },
+  { label: 'X',        href: 'https://x.com/SIrenikase54366',                             icon: 'XLogo' },
+  { label: 'YouTube',  href: '#',                                                          icon: 'YouTube' },
 ];
 
 export const services = [

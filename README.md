@@ -35,9 +35,8 @@ no other change. The object shapes are documented at the top of that file.
 - Set `NEXT_PUBLIC_SITE_URL` (for example `https://samuel.example`) in the
   deployment environment. Open Graph URLs, `robots.txt` and `sitemap.xml`
   read it.
-- Replace `site.email` in `data/site.js`. Every `mailto:` link reads it.
-- Fill in the `socials` links in `data/site.js`. Entries still set to `#` are
-  hidden rather than rendered as dead links.
+- Contact email and social links live in `data/site.js`. Entries still set
+  to `#` (currently YouTube) are hidden rather than rendered as dead links.
 - Point the two "Book a Call" buttons at a real scheduling link.
 - The chat drawer is a front end only; the composer stays disabled until a
   backend exists.
