@@ -1534,3 +1534,17 @@ button.cat-touch { cursor: pointer; border-radius: 18px; }
 @media (prefers-reduced-motion: reduce) {
   .grass-tuft, .cat-meadow .meadow-traveller, .cat-meadow .articulated-cat, .cat-meadow .rig-head { animation: none !important; }
 }
+
+/* ---- 3D meadow cat (components/Cat3D.js). The painted cat stays underneath as the
+   interactive "brain": invisible, but still walking, clickable and strokable. ---- */
+.cat3d-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; transition: opacity .5s ease; }
+.cat-3d .cat3d-canvas { opacity: 1; }
+.cat-3d .meadow-traveller svg.mascot { opacity: 0; }
+/* Naps use the painted sleeping cat: the 3D cat fades out while it sleeps. */
+.cat-3d.cat-sleep .cat3d-canvas { opacity: 0; }
+/* A tap makes the 3D cat meow instead of waving a paw. */
+.cat-meow-note { position: absolute; right: 4%; top: -4%; font-family: var(--hand); font-size: 17px; opacity: 0; transform: translateY(4px); transition: opacity .3s ease, transform .3s ease; pointer-events: none; }
+.cat-3d.cat-wave .cat-meow-note { opacity: .8; transform: none; }
+.cat-facing-left .cat-meow-note { scale: -1 1; }
+.meadow-credit { font-size: 11px; color: var(--muted); margin-top: 8px; }
+.meadow-credit a { color: inherit; }

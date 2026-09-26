@@ -1,5 +1,22 @@
 # Portfolio animation pass
 
+## September 26 — the meadow cat in 3D
+
+The meadow cat is now a rigged 3D cat: "Toon Cat FREE" by Omabuarts Studio (CC BY 4.0, credited under the meadow and in public/cat/3d/LICENSE.txt), recoloured to the site cat. Its 64-colour palette is repainted by scripts/recolor-3d-cat.mjs. Grey saddle and crown patches are painted in the shader by lib/catMaterial.js, fixed to the fur so they move with it.
+
+- The painted cat stays underneath as the brain: invisible, but still walking the path and taking clicks and strokes. components/Cat3D.js reads its position, facing, mood and gaze every frame and poses the 3D skeleton to match.
+- Real 3D behaviour:
+  - It turns round through a front view when it changes direction.
+  - The head and neck swivel toward the pointer, and the cat looks straight at you when the pointer is at its face.
+  - The tail's five segments carry a wave from base to tip. It is lazy when idle, counterbalances when walking, twitches at the tip when alert, and rises when purring.
+  - It breathes, blinks at random and slow-blinks on request, and flicks each ear independently.
+  - It yawns with its jaw now and then and on Stretch, and meows when tapped.
+- The walk uses the model's own walk cycle. Its playback speed is set every frame from how fast the cat is actually moving, so the paws do not skate. The standing pose is the average of the walk cycle.
+- Naps crossfade to the painted sleeping cat. The rig's legs cannot fold into a believable lying pose.
+- three.js and the model (about 205 KB) load only when the meadow scrolls into view. Reduced motion, Pause, or no WebGL keep the painted cat.
+
+Verified in headless Chromium: every state was captured (looking at you, looking right, looking back, walking, turning, yawning, meowing, purring, napping), with no console errors. The 3D assets are not requested before the meadow is visible. A 390px phone shows no overflow. Reduced motion keeps the painted cat.
+
 ## September 26 — cat behaviour pass
 
 The cats now react like cats, not just turn toward the pointer.

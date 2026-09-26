@@ -32,6 +32,11 @@ export default function Footer() {
         <p className="hand">A little fresh air.</p>
         <AnimatedCat meadow />
         <MotionControls />
+        <p className="meadow-credit">
+          3D cat based on <a href="https://sketchfab.com/3d-models/toon-cat-free-b2bd1ee7858444bda366110a2d960386" target="_blank" rel="noreferrer">&ldquo;Toon Cat FREE&rdquo;</a> by{' '}
+          <a href="https://sketchfab.com/omabuarts" target="_blank" rel="noreferrer">Omabuarts Studio</a>, licensed under{' '}
+          <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>. Recoloured.
+        </p>
       </section>
 
       <div className="footer-bottom">
