@@ -56,6 +56,15 @@ for (const [name, s] of Object.entries(scenes)) {
     height: +((bottom - top) / sy).toFixed(2),
   };
   console.log(`${name}: ${await kb(src)} -> ${await kb(out)}  patch: ${JSON.stringify(rect)}`);
+
+  // The open eyes, cut from the base painting (drawn 1:1 with the viewBox), for eye tracking.
+  const baseSrc = `public/scenes/${name}.png`;
+  const baseOut = `public/scenes/${name}-eyes-open.webp`;
+  const bm = await sharp(baseSrc).metadata();
+  const oL = Math.max(0, Math.floor(x0)), oT = Math.max(0, Math.floor(y0));
+  const oR = Math.min(bm.width, Math.ceil(x1)), oB = Math.min(bm.height, Math.ceil(y1));
+  await sharp(baseSrc).extract({ left: oL, top: oT, width: oR - oL, height: oB - oT }).webp({ quality: 92 }).toFile(baseOut);
+  console.log(`${name}: open eyes ${await kb(baseOut)}  look: ${JSON.stringify({ x: oL, y: oT, width: oR - oL, height: oB - oT })}`);
 }
 
 for (const [src, opts] of [

@@ -1,5 +1,20 @@
 # Portfolio animation pass
 
+## September 26 — cat behaviour pass
+
+The cats now react like cats, not just turn toward the pointer.
+
+- Eyes follow the pointer on every cat, including the painted cats in the heroes. A copy of the open eyes, cut from the same artwork, slides inside soft-edged sockets, so the irises move and the fur stays put. The eyes lead with a 60 ms time constant, and the head and body follow at 160 ms.
+- With no pointer around, including on touch screens, the eyes glance about every 1.4 to 4 seconds and often return to centre.
+- Ears swivel toward the pointer, lagging the head slightly.
+- Breathing: the layered cat's chest rises and falls on a 4.6 s cycle.
+- Alert: a fast flick of the pointer within about 420 px perks the ears and sets the tail tip twitching for about 2 s.
+- Petting: slow strokes across the cat, mouse or finger, make it purr. Its eyes close, its ears relax sideways, its head leans in, its tail lifts and sways slowly, its breathing quickens, and a small "prrr…" appears. A fast swipe counts as startling, not petting.
+- Slow blink: resting the pointer near a cat's face for about 1.2 s earns a slow blink, the cat's sign of trust. The painted hero cats do the same.
+- Pause motion and reduced motion switch all of this off.
+
+Verified in headless Chromium against a production build. Close-up captures confirmed iris movement in four directions on the layered cat and both directions on the hero cat. Separate runs confirmed that a fast swipe triggers alert and slow strokes trigger purr. The slow blink, idle glances and Pause were also checked. After a real walk there and back, the mirrored meadow cat's eyes still look toward the pointer. The console showed no errors.
+
 ## September 26 — depth and follow pass
 
 The hero paintings and the layered cat now respond to the pointer in perspective instead of sitting flat.

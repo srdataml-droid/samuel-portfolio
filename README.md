@@ -43,8 +43,8 @@ no other change. The object shapes are documented at the top of that file.
 
 ## Artwork
 
-`node scripts/optimize-art.mjs` regenerates the small closed-eye patches the
-hero blink uses and the WebP versions of the footer art. Run it after
+`node scripts/optimize-art.mjs` regenerates the small open- and closed-eye
+patches the hero cats use to look around and blink, and the WebP versions of the footer art. Run it after
 replacing any of the source PNGs and paste the printed `patch` rects into
 `components/HeroBlink.js`.
 
