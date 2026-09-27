@@ -1,5 +1,17 @@
 # Portfolio animation pass
 
+## September 27: the cats sleep in 3D
+
+Both 3D cats now nap in 3D instead of crossfading to the painted sleeping cat. The sleeping pose is SLEEP in components/Cat3D.js: chest lowered, rear legs folded under, front paws stretched forward, chin resting low, tail wrapped round.
+
+- The cat lowers itself slowly (0.7 s time constant) and gets up quicker (0.35 s).
+- Asleep, its eyes stay closed, its ears relax, and its head stops following the pointer. Its breathing slows and deepens, from a 4.4 s cycle to 5.5 s, and the tail tip flicks now and then.
+- It wakes into a yawn, and the sidebar cat goes straight back to sitting.
+- While asleep it draws at 15 frames a second.
+- The painted sleeping cat remains only as the fallback when 3D is not running.
+
+Verified in headless Chromium: the sidebar cat was captured lying down, asleep and waking with a yawn, and the meadow cat asleep in the grass. The painted sleeper is hidden in 3D mode, and the console showed no errors.
+
 ## September 27: a sitting sidebar cat, a routine for the meadow cat, quiet buttons
 
 - **The sidebar cat only sits and sleeps.** It is the same 3D cat, posed sitting (see SIT in components/Cat3D.js): body pitched nose-up, rear legs folded under the haunch, front legs straight, head levelled, tail tucked round. It sits three-quarters toward you and its head turns to look at the pointer. It dozes off by itself after 50 to 95 seconds, sleeps 25 to 45 seconds as the painted sleeping cat, then wakes with a 3D yawn. Its only control is Nap or Wake. It renders at 30 frames a second and not at all while asleep. The 3D files load 1.2 seconds after the page, and only on screens wide enough to show the sidebar.

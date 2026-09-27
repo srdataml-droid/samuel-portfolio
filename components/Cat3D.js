@@ -66,6 +66,19 @@ const SIT = {
   tail_07: [0.6, 0, 0], tail01_08: [0, 0, 0.35], tail02_09: [0, 0, 0.35], tail03_010: [0, 0, 0.35], tailend_011: [0, 0, 0.35],
 };
 
+// Lying asleep: chest lowered, rear legs folded under, front paws stretched forward,
+// chin resting low, tail wrapped round the far side.
+const SLEEP = {
+  root_01: [0.15, 0, 0],
+  thighBL_03: [-1.0, 0, 0], thighBR_026: [-1.0, 0, 0],
+  legupperBL_04: [2.0, 0, 0], legupperBR_027: [2.0, 0, 0],
+  leglowerBL_05: [-0.4, 0, 0], leglowerBR_028: [-0.4, 0, 0],
+  legupperFL_014: [-1.4, 0, 0], legupperFR_024: [-1.4, 0, 0],
+  leglowerFL_015: [0.3, 0, 0], leglowerFR_00: [0.3, 0, 0],
+  neck_017: [0.8, 0, 0],
+  tail_07: [-1.2, 0, 0], tail01_08: [0, 0, 0.45], tail02_09: [0, 0, 0.45], tail03_010: [0, 0, 0.45], tailend_011: [0, 0, 0.45],
+};
+
 async function start(host, canvas, mode, isDisposed) {
   const THREE = await import('three');
   const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
@@ -148,13 +161,21 @@ async function start(host, canvas, mode, isDisposed) {
     model.updateMatrixWorld(true);
     return new THREE.Box3().expandByObject(model, true); // precise: skinned vertices
   };
-  for (const b of bones) b.quaternion.copy(stand.get(b));
-  for (const [name, [x, y, z]] of Object.entries(SIT)) { const b = bone(name); if (b) { b.rotateX(x); b.rotateY(y); b.rotateZ(z); } }
-  for (const b of bones) sit.set(b, b.quaternion.clone());
+  const derive = (offsets) => {
+    const out = new Map();
+    for (const b of bones) b.quaternion.copy(stand.get(b));
+    for (const [name, [x, y, z]] of Object.entries(offsets)) { const b = bone(name); if (b) { b.rotateX(x); b.rotateY(y); b.rotateZ(z); } }
+    for (const b of bones) out.set(b, b.quaternion.clone());
+    return out;
+  };
+  for (const [b, q] of derive(SIT)) sit.set(b, q);
+  const sleep = derive(SLEEP);
   const standBox = measure(stand);
   const sitBox = measure(sit);
+  const sleepBox = measure(sleep);
   const sitHeight = sitBox.max.y - sitBox.min.y;
   const sitCentre = sitBox.getCenter(new THREE.Vector3());
+  const sleepCentre = sleepBox.getCenter(new THREE.Vector3());
 
   // How fast a planted paw sweeps backwards in model units per second: the walk's ground speed.
   let groundSpeed = 0.35;
@@ -199,7 +220,7 @@ async function start(host, canvas, mode, isDisposed) {
   window.addEventListener('pointermove', onMove, { passive: true });
 
   // ---- per-frame state ----
-  let yaw = perch ? 0.75 : 1.1, walkW = 0, sitW = perch ? 1 : 0, lastX = null, speed = 0;
+  let yaw = perch ? 0.75 : 1.1, walkW = 0, sitW = perch ? 1 : 0, sleepW = 0, lastX = null, speed = 0;
   let lookYaw = 0, lookPitch = 0, mouth = 0, eyes = 1, earBack = 0, spineDip = 0, tailLift = 0, roll = 0;
   let nextBlink = rand(2, 5), blinkT = -1;
   const flick = { L: { next: rand(3, 8), t: -1 }, R: { next: rand(4, 9), t: -1 } };
@@ -220,11 +241,13 @@ async function start(host, canvas, mode, isDisposed) {
     const cls = host.classList;
     const paused = document.documentElement.dataset.motion === 'paused' || cls.contains('cat-still');
     const sleeping = cls.contains('cat-sleep');
-    if (paused || document.hidden || host.dataset.inView === 'false' || (sleeping && wasSleeping)) return;
-    // The sidebar cat only sits: 30 frames a second is plenty and kinder to batteries.
+    if (paused || document.hidden || host.dataset.inView === 'false') return;
+    // The sidebar cat only sits, and a sleeping cat only breathes: fewer frames are plenty
+    // and kinder to batteries.
     sinceDraw += dt;
-    if (perch && sinceDraw < 1 / 30) return;
-    const step = perch ? sinceDraw : dt;
+    const settledAsleep = sleeping && sleepW > 0.98;
+    if ((perch && sinceDraw < 1 / 30) || (settledAsleep && sinceDraw < 1 / 15)) return;
+    const step = perch || settledAsleep ? sinceDraw : dt;
     sinceDraw = 0;
     clock += step;
     resize();
@@ -240,7 +263,8 @@ async function start(host, canvas, mode, isDisposed) {
     const slowBlink = cls.contains('cat-slowblink');
 
     // ---- where the cat is and how big ----
-    sitW = ease(sitW, sitting && !walking ? 1 : 0, step, 0.28);
+    sitW = ease(sitW, sitting && !walking && !sleeping ? 1 : 0, step, 0.28);
+    sleepW = ease(sleepW, sleeping ? 1 : 0, step, sleeping ? 0.7 : 0.35); // lies down slowly, gets up quicker
     let scale, x, groundY;
     if (perch) {
       scale = (size.h * 0.9) / sitHeight;
@@ -256,9 +280,10 @@ async function start(host, canvas, mode, isDisposed) {
     tiltGroup.position.set(x, groundY, 0);
     tiltGroup.scale.setScalar(scale);
     // Keep the paws on the ground in every pose; centre the sitting cat in its box.
-    const minY = standBox.min.y + (sitBox.min.y - standBox.min.y) * sitW;
-    model.position.y = -minY;
-    model.position.z = -centre0.z - (perch ? sitCentre.z : 0) * sitW;
+    const upY = standBox.min.y + (sitBox.min.y - standBox.min.y) * sitW;
+    model.position.y = -(upY + (sleepBox.min.y - upY) * sleepW);
+    const upZ = (perch ? sitCentre.z : 0) * sitW;
+    model.position.z = -centre0.z - (upZ + ((perch ? sleepCentre.z : 0) - upZ) * sleepW);
 
     // ---- body facing: near-profile when walking, turned toward you when standing or sitting ----
     const targetYaw = perch ? 0.75 : (facingLeft ? -1 : 1) * (walking ? 1.32 : sitting ? 0.8 : 1.02);
@@ -273,12 +298,13 @@ async function start(host, canvas, mode, isDisposed) {
       const walkPose = b.quaternion.clone();
       b.quaternion.copy(stand.get(b)).slerp(walkPose, walkW);
       if (sitW > 0.001) b.quaternion.slerp(sit.get(b), sitW);
+      if (sleepW > 0.001) b.quaternion.slerp(sleep.get(b), sleepW);
     }
     model.updateMatrixWorld(true);
 
     // ---- moods ----
     idleFor = walking || waving || purring || stretching ? 0 : idleFor + step;
-    if (yawnT < 0 && !walking && !purring && idleFor > 8 && clock > nextYawn) { yawnT = 0; nextYawn = clock + rand(30, 60); }
+    if (yawnT < 0 && !walking && !purring && !sleeping && idleFor > 8 && clock > nextYawn) { yawnT = 0; nextYawn = clock + rand(30, 60); }
     if (stretching && yawnT < 0) yawnT = 0;
     if (wasSleeping && !sleeping) yawnT = 0; // waking up: a big yawn
     wasSleeping = sleeping;
@@ -287,6 +313,7 @@ async function start(host, canvas, mode, isDisposed) {
 
     let mouthT = 0, eyesT = 1, earT = alert ? -0.14 : 0, dipT = 0, liftT = alert ? 0.1 : 0, pitchExtra = 0, rollT = 0;
     if (purring) { eyesT = 0.22; earT = 0.45; liftT = 0.28; rollT = 0.18; }
+    if (sleeping) { eyesT = 0.08; earT = 0.3; liftT = 0; rollT = 0.1; }
     if (yawnT >= 0) {
       yawnT += step;
       const p = yawnT < 0.9 ? yawnT / 0.9 : yawnT < 1.7 ? 1 : Math.max(0, 1 - (yawnT - 1.7) / 0.8);
@@ -301,7 +328,7 @@ async function start(host, canvas, mode, isDisposed) {
       mouthT = Math.max(mouthT, a, b); rollT = 0.22 * Math.min(1, meowT * 3); eyesT = Math.min(eyesT, 0.85);
       if (meowT > 1.1) meowT = -1;
     }
-    if (blinkT < 0 && clock > nextBlink) { blinkT = 0; nextBlink = clock + rand(2.5, 6.5); }
+    if (!sleeping && blinkT < 0 && clock > nextBlink) { blinkT = 0; nextBlink = clock + rand(2.5, 6.5); }
     if (blinkT >= 0) { blinkT += step; eyesT = Math.min(eyesT, blinkT < 0.06 ? 1 - blinkT / 0.06 : Math.min(1, (blinkT - 0.06) / 0.1)); if (blinkT > 0.16) blinkT = -1; }
     if (slowBlink) eyesT = Math.min(eyesT, 0.12);
 
@@ -326,7 +353,7 @@ async function start(host, canvas, mode, isDisposed) {
     const local = tiltGroup.worldToLocal(target.clone()).sub(tiltGroup.worldToLocal(headPos.clone()));
     const wantYaw = wrap(Math.atan2(local.x, local.z) - yaw);
     const wantPitch = Math.atan2(local.y, Math.hypot(local.x, local.z));
-    const reach = walking ? 0.5 : 1;
+    const reach = (walking ? 0.5 : 1) * (1 - sleepW);
     lookYaw = ease(lookYaw, Math.max(-1.2, Math.min(1.2, wantYaw)) * reach, step, 0.12);
     lookPitch = ease(lookPitch, Math.max(-0.45, Math.min(0.55, wantPitch)) * reach, step, 0.12);
     const faceYaw = yaw + lookYaw;
@@ -339,7 +366,7 @@ async function start(host, canvas, mode, isDisposed) {
     turnBone(B.head, forward, roll);
 
     // ---- the rest of the body, on top of the pose ----
-    const breath = Math.sin(clock * Math.PI * 2 / (purring ? 2.2 : 4.4)) * 0.018;
+    const breath = Math.sin(clock * Math.PI * 2 / (sleeping ? 5.5 : purring ? 2.2 : 4.4)) * (sleeping ? 0.03 : 0.018);
     B.spine.rotateX(spineDip + breath);
     B.mouth.rotateX(mouth);
     const eyeScale = Math.max(0.1, eyes);
@@ -355,8 +382,9 @@ async function start(host, canvas, mode, isDisposed) {
     // tip when sitting, a nervous twitch when alert, raised and slow when purring.
     const period = alert ? 0.5 : walking ? clip.duration / Math.max(walk.timeScale, 0.2) : purring ? 4 : sitting ? 2.6 : 3.2;
     const amp = alert ? 0.1 : walking ? 0.1 : purring ? 0.07 : 0.15;
+    const dreamTwitch = sleeping ? Math.max(0, Math.sin(clock * 0.9) - 0.93) * 6 : 1; // an occasional flick of the tail tip
     B.tail.forEach((t, i) => {
-      const sitTip = sitting ? (i >= 3 ? 1.4 : 0.35) : 1; // sitting cats keep the tail still and flick the tip
+      const sitTip = sleeping ? (i >= 3 ? dreamTwitch : 0) : sitting ? (i >= 3 ? 1.4 : 0.35) : 1; // sitting cats keep the tail still and flick the tip
       const tipBoost = alert && i >= 3 ? 3.2 : 1;
       t.rotateY(Math.sin(clock * Math.PI * 2 / period - i * 0.7) * amp * tipBoost * sitTip);
       t.rotateX(i === 0 ? tailLift * (1 - sitW) : i >= 3 ? tailLift * 0.6 : 0);
