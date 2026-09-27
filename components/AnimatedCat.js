@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { followPointer, onPointerRest } from '@/lib/follow';
 import Cat3D from './Cat3D';
 
-export default function AnimatedCat({ className = '', interactive = true, meadow = false }) {
+export default function AnimatedCat({ className = '', interactive = true, meadow = false, perch = false }) {
   const id = useId().replace(/:/g, '');
   const root = useRef(null);
   const [action, setAction] = useState('idle');
@@ -16,12 +16,22 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
   const [alert, setAlert] = useState(false);
   const [purr, setPurr] = useState(false);
   const [slowBlink, setSlowBlink] = useState(false);
-  const [threeD, setThreeD] = useState(false); // the 3D meadow cat has loaded and is drawing
+  const [threeD, setThreeD] = useState(false); // the 3D cat has loaded and is drawing
   const activity = useRef(Date.now());
   const actionRef = useRef('idle');
   actionRef.current = action;
   const facingRef = useRef(false);
   facingRef.current = facingLeft;
+  const atRightRef = useRef(false);
+  atRightRef.current = atRight;
+  const threeDRef = useRef(false);
+  threeDRef.current = threeD;
+  // Routine bookkeeping: when the current action began, how long it should last, when the cat last
+  // woke, and when a visitor last gave it an instruction (the routine steps back for a while).
+  const since = useRef(Date.now());
+  const planned = useRef(8000);
+  const awakeSince = useRef(Date.now());
+  const lastUser = useRef(0);
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -108,16 +118,12 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
     };
 
     const wake = () => { activity.current = Date.now(); };
-    const timer = window.setInterval(() => {
-      if (!document.hidden && Date.now() - activity.current > 45000 && actionRef.current === 'idle') setAction('sleep');
-    }, 5000);
     window.addEventListener('pointermove', watch, { passive: true });
     window.addEventListener('keydown', wake);
     touch.addEventListener('pointermove', pet, { passive: true });
     return () => {
       stops.forEach((stop) => stop());
       Object.values(timers).forEach(clearTimeout);
-      clearInterval(timer);
       window.removeEventListener('pointermove', watch);
       window.removeEventListener('keydown', wake);
       touch.removeEventListener('pointermove', pet);
@@ -128,11 +134,59 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
   function perform(next) {
     if (meadow && action === 'walk') return;
     activity.current = Date.now();
+    lastUser.current = Date.now();
     if (next === 'walk') setFacingLeft(atRight);
     if (next === 'sleep') {
       setAction(action === 'sleep' ? 'idle' : 'sleep');
     } else if (!still) { setAction(next); }
   }
+
+  // ---- the daily routine ----
+  // How long each state lasts before the cat decides what to do next (ms).
+  useEffect(() => {
+    const r = (a, b) => a + Math.random() * (b - a);
+    since.current = Date.now();
+    if (action !== 'sleep' && planned.current === -1) awakeSince.current = Date.now();
+    planned.current = action === 'sleep' ? r(perch ? 25000 : 18000, perch ? 45000 : 32000)
+      : action === 'sit' ? r(10000, 20000)
+      : perch ? r(50000, 95000) : r(6000, 13000);
+    if (action === 'sleep') planned.current = -planned.current; // negative marks a nap in progress
+  }, [action, perch]);
+
+  useEffect(() => {
+    if (!interactive || still) return undefined;
+    let wakeStretch = 0;
+    const timer = window.setInterval(() => {
+      const el = root.current;
+      if (!el || document.hidden || el.dataset.inView === 'false') return;
+      if (Date.now() - lastUser.current < 12000) return; // a visitor is playing: stay out of the way
+      const current = actionRef.current;
+      const age = Date.now() - since.current;
+      const napping = planned.current < 0;
+      if (age < Math.abs(planned.current)) return;
+      if (current === 'sleep' || napping) {
+        planned.current = -1; // mark: just woke
+        awakeSince.current = Date.now();
+        setAction('idle');
+        // Cats stretch when they wake up.
+        if (meadow) wakeStretch = window.setTimeout(() => { if (actionRef.current === 'idle') setAction('stretch'); }, 1200);
+        return;
+      }
+      if (perch) { if (current === 'idle') setAction('sleep'); return; }
+      if (!meadow) return;
+      if (current === 'sit') { setAction(Math.random() < 0.6 ? 'idle' : 'sleep'); return; }
+      if (current !== 'idle') return; // walking, stretching or saying hello: let it finish
+      const drowsy = Date.now() - awakeSince.current > 45000;
+      const roll = Math.random();
+      const next = roll < 0.4 ? 'walk'
+        : roll < 0.7 ? (threeDRef.current ? 'sit' : 'walk')
+        : roll < 0.85 ? 'stretch'
+        : drowsy ? 'sleep' : 'walk';
+      if (next === 'walk') setFacingLeft(atRightRef.current);
+      setAction(next);
+    }, 1000);
+    return () => { clearInterval(timer); clearTimeout(wakeStretch); };
+  }, [interactive, still, meadow, perch]);
   const clip = name => `url(#${id}-${name})`;
   // Legs and torso overlap through soft gradient edges so a rotating leg never exposes a hard slab of belly fur.
   const legMask = (name, x, width) => <mask id={`${id}-${name}`} maskUnits="userSpaceOnUse" x="0" y="0" width="1600" height="1200">
@@ -188,7 +242,7 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
   </>;
 
   const actor = interactive ? <button type="button" className="cat-touch" onClick={() => perform(action === 'sleep' ? 'sleep' : 'wave')} aria-label={action === 'sleep' ? 'Wake the cat' : 'Say hello to the cat'}>{graphic}</button> : <div className="cat-touch">{graphic}</div>;
-  return <div ref={root} className={`animated-cat motion-scene cat-${action} ${alert ? 'cat-alert' : ''} ${purr ? 'cat-purr' : ''} ${slowBlink ? 'cat-slowblink' : ''} ${threeD ? 'cat-3d' : ''} ${still ? 'cat-still' : ''} ${meadow ? 'cat-meadow' : ''} ${facingLeft ? 'cat-facing-left' : ''} ${className}`}
+  return <div ref={root} className={`animated-cat motion-scene cat-${action} ${alert ? 'cat-alert' : ''} ${purr ? 'cat-purr' : ''} ${slowBlink ? 'cat-slowblink' : ''} ${threeD ? 'cat-3d' : ''} ${still ? 'cat-still' : ''} ${meadow ? 'cat-meadow' : ''} ${perch ? 'cat-perch' : ''} ${facingLeft ? 'cat-facing-left' : ''} ${className}`}
     style={meadow ? { '--cat-position': atRight ? 'var(--meadow-span)' : '0%', '--walk-from': atRight ? 'var(--meadow-span)' : '0%', '--walk-to': atRight ? '0%' : 'var(--meadow-span)' } : undefined}
     onAnimationEnd={event => {
       if (event.animationName === 'meadow-stroll') { setAtRight(value => !value); setAction('idle'); activity.current = Date.now(); }
@@ -203,12 +257,15 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
           <path d={`M${x} 300 Q${x-12} 276 ${x-18} ${254+i%3*7} M${x} 300 Q${x+7} 267 ${x+17} ${247+i%2*9} M${x} 300 Q${x-2} 270 ${x+1} 258`} />
         </g>)}
       </svg>
-    </div> : actor}
-    {interactive && <div className="cat-actions" role="group" aria-label="Cat activities">
+    </div> : <>{actor}{interactive && perch && <Cat3D root={root} onReady={setThreeD} mode="perch" />}</>}
+    {interactive && perch && <div className="cat-actions" role="group" aria-label="Cat activities">
+      <button type="button" onClick={() => perform('sleep')}>{action === 'sleep' ? 'Wake' : 'Nap'}</button>
+    </div>}
+    {interactive && !perch && <div className="cat-actions" role="group" aria-label="Cat activities">
       <button type="button" onClick={() => perform('walk')} disabled={still || (meadow && action === 'walk')}>{meadow ? action === 'walk' ? 'Walking…' : atRight ? 'Walk back' : 'Take a walk' : 'Walk'}</button>
       <button type="button" onClick={() => perform('stretch')} disabled={still || (meadow && action === 'walk')}>Stretch</button>
       <button type="button" onClick={() => perform('sleep')} disabled={meadow && action === 'walk'}>{action === 'sleep' ? 'Wake' : 'Nap'}</button>
     </div>}
-    {meadow && <p className="meadow-status" role="status">{action === 'walk' ? 'A little wander through the grass.' : action === 'stretch' ? 'A long stretch, paws forward.' : action === 'sleep' ? 'A sunny spot for a nap. Tap the cat to wake up.' : purr ? 'Purring. Keep going.' : 'Stroke the cat, tap to say hello, or choose a little adventure.'}</p>}
+    {meadow && <p className="meadow-status" role="status">{action === 'walk' ? 'A little wander through the grass.' : action === 'stretch' ? 'A long stretch, paws forward.' : action === 'sleep' ? 'A sunny spot for a nap. Tap the cat to wake up.' : action === 'sit' ? 'Sitting in the sun, watching you.' : purr ? 'Purring. Keep going.' : 'Stroke the cat, tap to say hello, or choose a little adventure.'}</p>}
   </div>;
 }

@@ -1,5 +1,14 @@
 # Portfolio animation pass
 
+## September 27: a sitting sidebar cat, a routine for the meadow cat, quiet buttons
+
+- **The sidebar cat only sits and sleeps.** It is the same 3D cat, posed sitting (see SIT in components/Cat3D.js): body pitched nose-up, rear legs folded under the haunch, front legs straight, head levelled, tail tucked round. It sits three-quarters toward you and its head turns to look at the pointer. It dozes off by itself after 50 to 95 seconds, sleeps 25 to 45 seconds as the painted sleeping cat, then wakes with a 3D yawn. Its only control is Nap or Wake. It renders at 30 frames a second and not at all while asleep. The 3D files load 1.2 seconds after the page, and only on screens wide enough to show the sidebar.
+- **The meadow cat runs its own routine.** Idle for 6 to 13 seconds, then one of: walk to the other side (40%), sit for 10 to 20 seconds (30%), stretch and yawn (15%), or nap for 18 to 32 seconds once it has been awake 45 seconds (15%). From sitting it either stands (60%) or dozes off (40%). On waking it stretches, as cats do. The routine steps back for 12 seconds whenever a visitor presses a button or taps the cat, and it only runs while the meadow is on screen.
+- **Head aiming is done in world space**, so the look-at-you behaviour holds in any pose: standing, walking or sitting.
+- **Buttons are quiet**: 28% opacity until the cat is hovered or a button has keyboard focus. On touch screens they rest at 45%.
+
+Verified in headless Chromium. The sidebar cat was captured looking right, at you and down, napping, and waking with a yawn. The meadow cat, left alone for 70 seconds, went walk, idle, walk, idle, sit, idle, walk, idle, walk. The buttons measured 0.28 opacity at rest and 1 on hover. The console showed no errors.
+
 ## September 26 — the meadow cat in 3D
 
 The meadow cat is now a rigged 3D cat: "Toon Cat FREE" by Omabuarts Studio (CC BY 4.0, credited under the meadow and in public/cat/3d/LICENSE.txt), recoloured to the site cat. Its 64-colour palette is repainted by scripts/recolor-3d-cat.mjs. Grey saddle and crown patches are painted in the shader by lib/catMaterial.js, fixed to the fur so they move with it.

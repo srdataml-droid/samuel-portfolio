@@ -15,7 +15,7 @@ export default function Sidebar() {
         <p className="sidebar-quote">&ldquo;Good software for a kinder world.&rdquo;</p>
 
         <figure className="sidebar-cat">
-          <AnimatedCat />
+          <AnimatedCat perch />
           <figcaption>
             &uarr; Same cat.<br />Different ideas. &hearts;
           </figcaption>
