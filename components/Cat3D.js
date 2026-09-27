@@ -76,7 +76,7 @@ const SLEEP = {
   legupperFL_014: [-1.4, 0, 0], legupperFR_024: [-1.4, 0, 0],
   leglowerFL_015: [0.3, 0, 0], leglowerFR_00: [0.3, 0, 0],
   neck_017: [0.8, 0, 0],
-  tail_07: [-1.2, 0, 0], tail01_08: [0, 0, 0.45], tail02_09: [0, 0, 0.45], tail03_010: [0, 0, 0.45], tailend_011: [0, 0, 0.45],
+  tail_07: [-1.0, 0, 0],
 };
 
 async function start(host, canvas, mode, isDisposed) {
@@ -382,6 +382,13 @@ async function start(host, canvas, mode, isDisposed) {
     // tip when sitting, a nervous twitch when alert, raised and slow when purring.
     const period = alert ? 0.5 : walking ? clip.duration / Math.max(walk.timeScale, 0.2) : purring ? 4 : sitting ? 2.6 : 3.2;
     const amp = alert ? 0.1 : walking ? 0.1 : purring ? 0.07 : 0.15;
+    // Asleep, the tail curls round the haunch toward the side facing the viewer, segment by
+    // segment around the cat's own vertical axis, so it stays in sight instead of tucking away.
+    if (sleepW > 0.01) {
+      const side = Math.sign(yaw) || 1;
+      const curl = [0.6, 1.0, 1.0, 0.9, 0.8];
+      B.tail.forEach((t, i) => turnBone(t, UP, side * curl[i] * sleepW));
+    }
     const dreamTwitch = sleeping ? Math.max(0, Math.sin(clock * 0.9) - 0.93) * 6 : 1; // an occasional flick of the tail tip
     B.tail.forEach((t, i) => {
       const sitTip = sleeping ? (i >= 3 ? dreamTwitch : 0) : sitting ? (i >= 3 ? 1.4 : 0.35) : 1; // sitting cats keep the tail still and flick the tip
