@@ -27,6 +27,7 @@ export default function NotFound() {
       <section className="section">
         <EmptyState
           icon="Sparkle"
+          level={2}
           title="Nothing at this address."
           note="If you followed a link from somewhere else, it may be out of date. Try one of these instead."
           hand="The internet is a weird place."

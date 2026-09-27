@@ -37,9 +37,12 @@ no other change. The object shapes are documented at the top of that file.
   read it.
 - Contact email and social links live in `data/site.js`. Entries still set
   to `#` (currently YouTube) are hidden rather than rendered as dead links.
-- Point the two "Book a Call" buttons at a real scheduling link.
-- The chat drawer is a front end only; the composer stays disabled until a
-  backend exists.
+- "Book a Call" opens an email template (`bookingHref` in `data/site.js`). Swap it for a scheduling link once one exists.
+- The chat panel is a site guide (`lib/guide.js`): it matches a question to a
+  topic and answers from `data/site.js` and `data/content.js`, so it updates
+  itself when those do. It is not a language model and says so. To add a topic,
+  add an entry with its trigger words and an answer. Swapping in a real model
+  later means replacing `answer()` with a call to an API route.
 
 ## Artwork
 

@@ -19,6 +19,12 @@ export const site = {
   email: 'samuelirenikase@gmail.com',
 };
 
+/**
+ * Book a Call opens an email with a short template, so the first message already
+ * says what the call is about. Swap for a scheduling link (Cal.com, Calendly) later.
+ */
+export const bookingHref = `mailto:${site.email}?subject=${encodeURIComponent('Call request')}&body=${encodeURIComponent('Hi Samuel,\n\nWhat I would like to talk about:\n\nA few times that suit me (with time zone):\n\n')}`;
+
 export const nav = [
   { label: 'Home',            href: '/',          icon: 'Home' },
   { label: 'Projects',        href: '/projects',  icon: 'Grid' },
@@ -26,7 +32,7 @@ export const nav = [
   { label: 'Services',        href: '/services',  icon: 'Box' },
   { label: 'About',           href: '/about',     icon: 'User' },
   { label: 'Book a Call',     href: '/#book',     icon: 'Calendar' },
-  { label: 'Talk to Samuel',  action: 'chat',     icon: 'Chat' },
+  { label: 'Ask about Samuel', action: 'chat',     icon: 'Chat' },
 ];
 
 /** Real routes only: what the footer and the sitemap list. */
