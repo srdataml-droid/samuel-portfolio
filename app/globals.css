@@ -1539,7 +1539,7 @@ button.cat-touch { cursor: pointer; border-radius: 18px; }
    interactive "brain": invisible, but still walking, clickable and strokable. ---- */
 .cat3d-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; transition: opacity .5s ease; }
 .cat-3d .cat3d-canvas { opacity: 1; }
-.cat-3d .meadow-traveller svg.mascot { opacity: 0; }
+.cat-3d .cat-touch svg.mascot { opacity: 0; }
 /* Naps use the painted sleeping cat: the 3D cat fades out while it sleeps. */
 .cat-3d.cat-sleep .cat3d-canvas { opacity: 0; }
 /* A tap makes the 3D cat meow instead of waving a paw. */
@@ -1548,3 +1548,12 @@ button.cat-touch { cursor: pointer; border-radius: 18px; }
 .cat-facing-left .cat-meow-note { scale: -1 1; }
 .meadow-credit { font-size: 11px; color: var(--muted); margin-top: 8px; }
 .meadow-credit a { color: inherit; }
+
+/* The sidebar cat in 3D: it only sits and sleeps. The canvas lies over the painted cat's box. */
+.cat3d-canvas.cat3d-perch { inset: auto; top: 0; left: 0; width: 100%; height: auto; aspect-ratio: 4 / 3; }
+/* The cats run their own routines now, so their buttons stay in the background:
+   faint until the cat is hovered or a button gets keyboard focus. */
+.animated-cat .cat-actions, .cat-meadow + .motion-control { transition: opacity .35s ease; }
+.animated-cat .cat-actions { opacity: .28; }
+.animated-cat:hover .cat-actions, .animated-cat .cat-actions:focus-within { opacity: 1; }
+@media (hover: none) { .animated-cat .cat-actions { opacity: .45; } }
