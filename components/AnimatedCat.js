@@ -32,6 +32,12 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
   const planned = useRef(8000);
   const awakeSince = useRef(Date.now());
   const lastUser = useRef(0);
+  // Before anyone touches a button, the cat shows off everything the buttons do on its own, one
+  // after another: the meadow cat walks, stretches, sits, naps and says hello; the perched cat
+  // settles down for its first nap. Then the ordinary, unhurried routine takes over.
+  const intro = useRef(meadow ? ['walk', 'stretch', 'sit', 'sleep', 'wave', 'walk'] : perch ? ['sleep'] : []);
+  const born = useRef(Date.now());
+  const shortNap = useRef(false);
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -135,6 +141,7 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
     if (meadow && action === 'walk') return;
     activity.current = Date.now();
     lastUser.current = Date.now();
+    intro.current = intro.current.filter(step => step !== next); // no need to demonstrate it now
     if (next === 'walk') setFacingLeft(atRight);
     if (next === 'sleep') {
       setAction(action === 'sleep' ? 'idle' : 'sleep');
@@ -147,9 +154,14 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
     const r = (a, b) => a + Math.random() * (b - a);
     since.current = Date.now();
     if (action !== 'sleep' && planned.current === -1) awakeSince.current = Date.now();
-    planned.current = action === 'sleep' ? r(perch ? 25000 : 18000, perch ? 45000 : 32000)
-      : action === 'sit' ? r(10000, 20000)
+    const showing = intro.current.length > 0; // shorter beats while the cat is showing its repertoire
+    const opening = action === 'idle' && Date.now() - born.current < 1000;
+    planned.current = action === 'sleep' ? (showing || shortNap.current ? r(12000, 16000) : r(perch ? 25000 : 18000, perch ? 45000 : 32000))
+      : action === 'sit' ? (showing ? 7000 : r(10000, 20000))
+      : opening ? (perch ? 20000 : 3000)
+      : showing ? 2500
       : perch ? r(50000, 95000) : r(6000, 13000);
+    if (action === 'sleep') shortNap.current = false;
     if (action === 'sleep') planned.current = -planned.current; // negative marks a nap in progress
   }, [action, perch]);
 
@@ -158,7 +170,7 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
     let wakeStretch = 0;
     const timer = window.setInterval(() => {
       const el = root.current;
-      if (!el || document.hidden || el.dataset.inView === 'false') return;
+      if (!el || document.hidden || el.dataset.inView === 'false') { since.current += 1000; return; } // the routine waits for an audience
       if (Date.now() - lastUser.current < 12000) return; // a visitor is playing: stay out of the way
       const current = actionRef.current;
       const age = Date.now() - since.current;
@@ -172,16 +184,27 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
         if (meadow) wakeStretch = window.setTimeout(() => { if (actionRef.current === 'idle') setAction('stretch'); }, 1200);
         return;
       }
-      if (perch) { if (current === 'idle') setAction('sleep'); return; }
+      if (perch) {
+        if (current !== 'idle') return;
+        if (intro.current.length) { intro.current = []; shortNap.current = true; } // a short first nap
+        setAction('sleep');
+        return;
+      }
       if (!meadow) return;
-      if (current === 'sit') { setAction(Math.random() < 0.6 ? 'idle' : 'sleep'); return; }
+      // The next step of the introduction, skipping the sit if the 3D cat that can sit never loaded.
+      const scripted = () => {
+        while (intro.current[0] === 'sit' && !threeDRef.current) intro.current.shift();
+        return intro.current.shift();
+      };
+      if (current === 'sit') { setAction(scripted() || (Math.random() < 0.6 ? 'idle' : 'sleep')); return; }
       if (current !== 'idle') return; // walking, stretching or saying hello: let it finish
       const drowsy = Date.now() - awakeSince.current > 45000;
       const roll = Math.random();
-      const next = roll < 0.4 ? 'walk'
-        : roll < 0.7 ? (threeDRef.current ? 'sit' : 'walk')
-        : roll < 0.85 ? 'stretch'
-        : drowsy ? 'sleep' : 'walk';
+      const next = scripted() || (roll < 0.35 ? 'walk'
+        : roll < 0.6 ? (threeDRef.current ? 'sit' : 'walk')
+        : roll < 0.75 ? 'stretch'
+        : roll < 0.85 ? 'wave'
+        : drowsy ? 'sleep' : 'walk');
       if (next === 'walk') setFacingLeft(atRightRef.current);
       setAction(next);
     }, 1000);

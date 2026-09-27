@@ -1,5 +1,10 @@
 # Portfolio animation pass
 
+## September 27: the cat shows what the buttons do, and curls its tail to sleep
+
+- **Everything the buttons do happens on its own first.** Nobody has to find the faint buttons to see the repertoire. Three seconds after the meadow scrolls into view, the meadow cat walks across. Then, with short 2.5 second pauses, it stretches, sits for 7 seconds, naps for 12 to 16 seconds, wakes with a stretch, meows as a tap would make it, and walks back. After that the usual random routine takes over, and a meow now joins it (10%). The sidebar cat takes its first nap after 20 seconds, 12 to 16 seconds long, then keeps its usual long rhythm. Pressing a button removes that step from the introduction, and the routine clock stops while a cat is off screen, so nothing is performed to an empty room.
+- **The tail curls round the body in sleep.** As the cat lies down, each tail segment turns round the cat's own vertical axis toward the viewer, so the tail wraps the near haunch instead of trailing behind. The base drops less (-1.0 instead of -1.2) so the curl lies against the body. The dream twitch still flicks the tip now and then.
+
 ## September 27: the cats sleep in 3D
 
 Both 3D cats now nap in 3D instead of crossfading to the painted sleeping cat. The sleeping pose is SLEEP in components/Cat3D.js: chest lowered, rear legs folded under, front paws stretched forward, chin resting low, tail wrapped round.
