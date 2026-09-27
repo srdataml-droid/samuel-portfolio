@@ -1,5 +1,9 @@
 # Portfolio animation pass
 
+## September 27: the opening order changes on every visit
+
+- The meadow cat's introduction (walk, stretch, sit, nap, meow) is shuffled on each page load, so repeat visitors see a different opening. It already stretches as it wakes, so a nap is never followed straight away by the stretch step; that one step moves to the end. That leaves 96 of the 120 possible orders.
+
 ## September 27: the cat shows what the buttons do, and curls its tail to sleep
 
 - **Everything the buttons do happens on its own first.** Nobody has to find the faint buttons to see the repertoire. Three seconds after the meadow scrolls into view, the meadow cat walks across. Then, with short 2.5 second pauses, it stretches, sits for 7 seconds, naps for 12 to 16 seconds, wakes with a stretch, meows as a tap would make it, and walks back. After that the usual random routine takes over, and a meow now joins it (10%). The sidebar cat takes its first nap after 20 seconds, 12 to 16 seconds long, then keeps its usual long rhythm. Pressing a button removes that step from the introduction, and the routine clock stops while a cat is off screen, so nothing is performed to an empty room.

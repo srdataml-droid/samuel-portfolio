@@ -4,6 +4,20 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { followPointer, onPointerRest } from '@/lib/follow';
 import Cat3D from './Cat3D';
 
+// The meadow cat's opening repertoire, shuffled. It already stretches as it wakes, so a nap is never
+// followed straight away by a second stretch.
+function shuffledIntro() {
+  const steps = ['walk', 'stretch', 'sit', 'sleep', 'wave'];
+  for (let i = steps.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [steps[i], steps[j]] = [steps[j], steps[i]];
+  }
+  const nap = steps.indexOf('sleep');
+  if (steps[nap + 1] === 'stretch') steps.push(...steps.splice(nap + 1, 1));
+  if (steps.at(-1) === 'stretch' && steps.at(-2) === 'sleep') steps.unshift(steps.pop());
+  return steps;
+}
+
 export default function AnimatedCat({ className = '', interactive = true, meadow = false, perch = false }) {
   const id = useId().replace(/:/g, '');
   const root = useRef(null);
@@ -32,10 +46,11 @@ export default function AnimatedCat({ className = '', interactive = true, meadow
   const planned = useRef(8000);
   const awakeSince = useRef(Date.now());
   const lastUser = useRef(0);
-  // Before anyone touches a button, the cat shows off everything the buttons do on its own, one
-  // after another: the meadow cat walks, stretches, sits, naps and says hello; the perched cat
-  // settles down for its first nap. Then the ordinary, unhurried routine takes over.
-  const intro = useRef(meadow ? ['walk', 'stretch', 'sit', 'sleep', 'wave', 'walk'] : perch ? ['sleep'] : []);
+  // Before anyone touches a button, the cat shows off everything the buttons do on its own, in a
+  // different order on every visit: the meadow cat walks, stretches, sits, naps and says hello; the
+  // perched cat settles down for its first nap. Then the ordinary, unhurried routine takes over.
+  const intro = useRef(null);
+  if (intro.current === null) intro.current = meadow ? shuffledIntro() : perch ? ['sleep'] : [];
   const born = useRef(Date.now());
   const shortNap = useRef(false);
 

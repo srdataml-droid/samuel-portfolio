@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import DeskScene from '@/components/DeskScene';
-import { services, site } from '@/data/site';
+import { bookingHref, services, site } from '@/data/site';
 import * as Icons from '@/components/Icons';
+import CopyEmail from '@/components/CopyEmail';
 
 export const metadata = {
   title: 'Services',
@@ -32,7 +33,8 @@ export default function ServicesPage() {
         <DeskScene scene="services" priority />
       </section>
 
-      <section className="section">
+      <section className="section" aria-labelledby="service-list">
+        <h2 id="service-list" className="sr-only">Services in detail</h2>
         <div className="cols-3">
           {services.map(({ icon, title, blurb, detail }) => {
             const Icon = Icons[icon];
@@ -62,7 +64,7 @@ export default function ServicesPage() {
             return (
               <div className="focus-card" key={title}>
                 <Icon width={20} height={20} />
-                <h4>{title}</h4>
+                <h3>{title}</h3>
                 <p>{text}</p>
               </div>
             );
@@ -76,11 +78,14 @@ export default function ServicesPage() {
             <Icons.Calendar width={22} height={22} />
             <h3>Book a Call</h3>
             <p>Got a project, an idea, or just want to chat? Let&rsquo;s find time.</p>
-            <a className="button primary" href={`mailto:${site.email}?subject=Let%27s%20find%20a%20time`}>
-              Pick a Time <Icons.Arrow className="arrow" width={15} height={15} />
-            </a>
+            <div className="cta-actions">
+              <a className="button primary" href={bookingHref}>
+                Email to book <Icons.Arrow className="arrow" width={15} height={15} />
+              </a>
+              <CopyEmail />
+            </div>
             <p className="muted" style={{ fontSize: 12 }}>
-              Placeholder: point this at a real scheduling link when one exists.
+              Opens your mail app with a short template, addressed to {site.email}.
             </p>
           </div>
 

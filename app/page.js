@@ -4,8 +4,10 @@ import EmptyState, { SlotGrid } from '@/components/EmptyState';
 import ProjectCard from '@/components/ProjectCard';
 import VideoCard from '@/components/VideoCard';
 import { projects, videos } from '@/data/content';
-import { services, site } from '@/data/site';
+import { bookingHref, services, site } from '@/data/site';
+import ChatButton from '@/components/ChatButton';
 import * as Icons from '@/components/Icons';
+import CopyEmail from '@/components/CopyEmail';
 
 const featuredProjects = projects.slice(0, 4);
 const latestVideos = videos.slice(0, 2);
@@ -166,7 +168,7 @@ export default function HomePage() {
             return (
               <div className="service-card" key={title}>
                 <Icon width={22} height={22} />
-                <h4>{title}</h4>
+                <h3>{title}</h3>
                 <p>{blurb}</p>
               </div>
             );
@@ -186,22 +188,27 @@ export default function HomePage() {
             <Icons.Calendar width={22} height={22} />
             <h3>Book a Call</h3>
             <p>Got a project, an idea, or just want to chat? Let&rsquo;s find time.</p>
-            <a className="button primary" href={`mailto:${site.email}?subject=Let%27s%20find%20a%20time`}>
-              Pick a Time <Icons.Arrow className="arrow" width={15} height={15} />
-            </a>
+            <div className="cta-actions">
+              <a className="button primary" href={bookingHref}>
+                Email to book <Icons.Arrow className="arrow" width={15} height={15} />
+              </a>
+              <CopyEmail />
+            </div>
             <p className="muted" style={{ fontSize: 12 }}>
-              Placeholder: point this at a real scheduling link when one exists.
+              Opens your mail app with a short template, addressed to {site.email}.
             </p>
           </div>
 
           <div className="cta-card">
             <Icons.Chat width={22} height={22} />
-            <h3>Talk to Samuel&rsquo;s AI</h3>
+            <h3>Ask the site guide</h3>
             <p>
-              Ask about my work, projects, or just say hi. (It&rsquo;s a friendly AI,
-              not a real-time me.)
+              Quick questions about my work, services or how to reach me. It answers
+              from this site, so it is always up to date, if not very chatty.
             </p>
-            <p className="hand">Same curiosity. Different form.</p>
+            <ChatButton>
+              Ask a question <Icons.Arrow className="arrow" width={15} height={15} />
+            </ChatButton>
           </div>
         </div>
       </section>

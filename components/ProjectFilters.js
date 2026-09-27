@@ -43,6 +43,7 @@ export default function ProjectFilters({ projects = [] }) {
           <>
             <EmptyState
               icon="Grid"
+              level={2}
               title="Nothing pinned here yet. I’m building."
               note="This grid is ready for the real thing: each card will carry the problem, what I built, the outcome, the stack, and a link. Nothing goes up here until it is actually true."
               hand="Small projects. Bigger tomorrows."

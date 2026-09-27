@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Brand from './Brand';
 import NavList from './NavList';
 import Socials from './Socials';
 import ThemeToggle from './ThemeToggle';
 import { Menu, Close } from './Icons';
+import useFocusTrap from '@/lib/useFocusTrap';
 
 /**
  * Mobile navigation is its own thing, not the sidebar squeezed sideways:
@@ -17,21 +18,16 @@ export default function MobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const closeRef = useRef(null);
+  const drawerRef = useRef(null);
+  const close = useCallback(() => setOpen(false), []);
 
   useEffect(() => setOpen(false), [pathname]);
+  useFocusTrap(drawerRef, open, close, closeRef);
 
   useEffect(() => {
     if (!open) return undefined;
-    closeRef.current?.focus();
-    const onKey = (e) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
+    return () => { document.body.style.overflow = ''; };
   }, [open]);
 
   return (
@@ -61,6 +57,7 @@ export default function MobileNav() {
 
       <div
         id="mobile-drawer"
+        ref={drawerRef}
         className={`drawer ${open ? 'open' : ''}`}
         role="dialog"
         aria-modal="true"

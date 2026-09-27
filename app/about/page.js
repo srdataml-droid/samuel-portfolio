@@ -135,7 +135,7 @@ export default function AboutPage() {
             return (
               <li className="milestone" key={title}>
                 <span className="dot"><Icon width={17} height={17} /></span>
-                <h4>{title}</h4>
+                <h3>{title}</h3>
                 <p>{text}</p>
               </li>
             );
@@ -157,7 +157,7 @@ export default function AboutPage() {
                 return (
                   <div className="focus-card" key={title}>
                     <Icon width={20} height={20} />
-                    <h4>{title}</h4>
+                    <h3>{title}</h3>
                     <p>{text}</p>
                   </div>
                 );
@@ -176,7 +176,7 @@ export default function AboutPage() {
                 return (
                   <div className="value-card" key={title}>
                     <Icon width={22} height={22} />
-                    <h4>{title}</h4>
+                    <h3>{title}</h3>
                     <p>{text}</p>
                   </div>
                 );
