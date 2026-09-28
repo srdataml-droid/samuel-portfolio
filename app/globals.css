@@ -1583,3 +1583,30 @@ button.cat-touch { cursor: pointer; border-radius: 18px; }
 .animated-cat .cat-actions { opacity: .28; }
 .animated-cat:hover .cat-actions, .animated-cat .cat-actions:focus-within { opacity: 1; }
 @media (hover: none) { .animated-cat .cat-actions { opacity: .45; } }
+
+/* ------------------------------------------------ lab: channels + posts --- */
+
+.follow-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.follow-card {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px;
+  padding: 18px 20px; border-radius: var(--radius); border: 1px solid var(--line);
+  background: var(--card); color: var(--ink); text-decoration: none;
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.follow-card > svg:first-child { color: var(--gold); }
+.follow-card strong { display: block; font-size: 15px; }
+.follow-card small { color: var(--muted); font-size: 13px; }
+.follow-card:hover { transform: translateY(-2px); border-color: var(--gold); box-shadow: var(--shadow-sm); }
+.follow-card:hover .arrow { transform: translateX(3px); }
+.follow-card .arrow { transition: transform .18s ease; }
+
+.social-posts { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 326px), 1fr)); gap: 20px; align-items: start; }
+.social-posts blockquote { margin: 0 !important; min-width: 0 !important; max-width: 100% !important; }
+
+/* Until a platform's script turns a post into its player (or if it is blocked), the link stands in as a card. */
+.social-posts blockquote:not(:has(iframe)) {
+  display: grid; place-items: center; min-height: 220px; padding: 24px;
+  border: 1px dashed var(--line); border-radius: var(--radius); background: var(--card);
+}
+.social-posts blockquote:not(:has(iframe)) a { color: var(--ink); font-weight: 600; font-size: 14px; }
+.social-posts blockquote:not(:has(iframe)) a:hover { color: var(--gold); }

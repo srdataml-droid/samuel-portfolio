@@ -2,7 +2,10 @@ import Link from 'next/link';
 import DeskScene from '@/components/DeskScene';
 import VideoCard from '@/components/VideoCard';
 import EmptyState, { SlotGrid } from '@/components/EmptyState';
-import { videos, experiments } from '@/data/content';
+import { videos as manual, experiments, posts } from '@/data/content';
+import { latestVideos } from '@/lib/youtube';
+import FollowAlong from '@/components/FollowAlong';
+import SocialPosts from '@/components/SocialPosts';
 import * as Icons from '@/components/Icons';
 
 export const metadata = {
@@ -11,10 +14,16 @@ export const metadata = {
     'A tech diary of experiments, demos, lessons, and things Samuel is figuring out in public.',
 };
 
-const featured = videos.find((v) => v.featured) ?? videos[0] ?? null;
-const rest = videos.filter((v) => v !== featured);
+// Rebuilt in the background at most once an hour, so a new YouTube upload shows up without a deploy.
+export const revalidate = 3600;
 
-export default function LabPage() {
+export default async function LabPage() {
+  // Hand-written entries first (they can be marked featured), then the channel's uploads, newest first.
+  const fromYouTube = await latestVideos(12);
+  const videos = [...manual, ...fromYouTube.filter(v => !manual.some(m => m.href === v.href))];
+  const featured = videos.find((v) => v.featured) ?? videos[0] ?? null;
+  const rest = videos.filter((v) => v !== featured);
+
   return (
     <>
       <section className="page-hero">
@@ -97,6 +106,19 @@ export default function LabPage() {
           </div>
         </div>
       </section>
+
+      {/* ------------------------------------------------ follow + posts */}
+      <FollowAlong />
+
+      {posts.length > 0 && (
+        <section className="section" aria-labelledby="lab-posts">
+          <div className="section-head">
+            <h2 id="lab-posts">From Instagram &amp; TikTok</h2>
+            <p className="hand">Shorter experiments, straight from the phone.</p>
+          </div>
+          <SocialPosts posts={posts} />
+        </section>
+      )}
 
       {/* ------------------------------------------------------ video grid */}
       <section className="section paper">

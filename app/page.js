@@ -3,16 +3,21 @@ import DeskScene from '@/components/DeskScene';
 import EmptyState, { SlotGrid } from '@/components/EmptyState';
 import ProjectCard from '@/components/ProjectCard';
 import VideoCard from '@/components/VideoCard';
-import { projects, videos } from '@/data/content';
+import { projects, videos as manual } from '@/data/content';
+import { latestVideos } from '@/lib/youtube';
 import { bookingHref, services, site } from '@/data/site';
 import ChatButton from '@/components/ChatButton';
 import * as Icons from '@/components/Icons';
 import CopyEmail from '@/components/CopyEmail';
 
 const featuredProjects = projects.slice(0, 4);
-const latestVideos = videos.slice(0, 2);
+// Refreshed hourly in the background so the latest uploads appear without a deploy.
+export const revalidate = 3600;
 
-export default function HomePage() {
+export default async function HomePage() {
+  const fromYouTube = await latestVideos(2);
+  const latest = [...manual, ...fromYouTube.filter(v => !manual.some(m => m.href === v.href))].slice(0, 2);
+
   return (
     <>
       {/* ------------------------------------------------------------ hero */}
@@ -134,9 +139,9 @@ export default function HomePage() {
           </Link>
         </div>
 
-        {latestVideos.length > 0 ? (
+        {latest.length > 0 ? (
           <div className="cols-2">
-            {latestVideos.map((video) => <VideoCard key={video.slug} video={video} />)}
+            {latest.map((video) => <VideoCard key={video.slug} video={video} />)}
           </div>
         ) : (
           <EmptyState

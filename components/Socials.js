@@ -4,7 +4,7 @@ import * as Icons from './Icons';
 /**
  * The social icon row, shared by the sidebar, the mobile drawer and the
  * footer. `children` lets a caller append extra links (the footer adds email).
- * Placeholder entries (`href: '#'`) are hidden rather than rendered as dead links.
+ * Entries without a real URL (empty or `#`) are hidden rather than rendered as dead links.
  */
 export default function Socials({ className = 'socials', size = 18, children }) {
   const live = socials.filter(({ href }) => href && href !== '#');

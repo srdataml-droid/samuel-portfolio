@@ -37,6 +37,17 @@ export const projects = [];
 export const videos = [];
 
 /**
+ * Instagram and TikTok posts to show on the Lab page, newest first. Paste the
+ * post's share link; the page embeds it with the platform's own player.
+ * (YouTube needs nothing here: uploads appear on their own, see lib/youtube.js.)
+ *
+ *   { url: 'https://www.instagram.com/p/XXXXXXXXXXX/' }
+ *   { url: 'https://www.instagram.com/reel/XXXXXXXXXXX/' }
+ *   { url: 'https://www.tiktok.com/@handle/video/1234567890123456789' }
+ */
+export const posts = [];
+
+/**
  * Things currently being explored. Empty until Samuel lists real ones.
  * Shape: { title: 'Multi-agent workflows', state: 'Testing', done: false }
  */
