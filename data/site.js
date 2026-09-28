@@ -38,12 +38,38 @@ export const nav = [
 /** Real routes only: what the footer and the sitemap list. */
 export const pages = nav.filter((item) => item.href && !item.href.includes('#'));
 
-/** Entries still set to `#` are hidden by the Socials component until a real URL exists. */
+/**
+ * The channels the Lab pulls from. Fill in a handle (without the @) and that
+ * channel's icon appears in the sidebar, the footer and the Lab's "Follow along"
+ * row; leave it empty and it stays hidden.
+ *
+ * YouTube also powers the Lab's video grid automatically: every upload appears
+ * within the hour, no redeploy. `channelId` (starts with UC) is optional; the
+ * handle is looked up if it is missing. Set YOUTUBE_API_KEY in the deployment
+ * environment for the reliable official API; without it the site falls back to
+ * YouTube's public feed, which often refuses requests from servers.
+ */
+export const channels = {
+  youtube:   { handle: '', channelId: '' },
+  instagram: { handle: '' },
+  tiktok:    { handle: '' },
+};
+
+const at = (handle) => handle.replace(/^@/, '').trim();
+export const channelUrl = {
+  youtube:   ({ handle, channelId }) => (handle ? `https://www.youtube.com/@${at(handle)}` : channelId ? `https://www.youtube.com/channel/${channelId}` : ''),
+  instagram: ({ handle }) => (handle ? `https://www.instagram.com/${at(handle)}/` : ''),
+  tiktok:    ({ handle }) => (handle ? `https://www.tiktok.com/@${at(handle)}` : ''),
+};
+
+/** Entries with an empty or `#` href are hidden by the Socials component until a real URL exists. */
 export const socials = [
-  { label: 'GitHub',   href: 'https://github.com/srdataml-droid',                          icon: 'GitHub' },
-  { label: 'LinkedIn', href: 'https://www.linkedin.com/in/samuel-irenikase-582954364/',   icon: 'LinkedIn' },
-  { label: 'X',        href: 'https://x.com/SIrenikase54366',                             icon: 'XLogo' },
-  { label: 'YouTube',  href: '#',                                                          icon: 'YouTube' },
+  { label: 'GitHub',    href: 'https://github.com/srdataml-droid',                          icon: 'GitHub' },
+  { label: 'LinkedIn',  href: 'https://www.linkedin.com/in/samuel-irenikase-582954364/',   icon: 'LinkedIn' },
+  { label: 'X',         href: 'https://x.com/SIrenikase54366',                             icon: 'XLogo' },
+  { label: 'YouTube',   href: channelUrl.youtube(channels.youtube),                        icon: 'YouTube' },
+  { label: 'Instagram', href: channelUrl.instagram(channels.instagram),                    icon: 'Instagram' },
+  { label: 'TikTok',    href: channelUrl.tiktok(channels.tiktok),                          icon: 'TikTok' },
 ];
 
 export const services = [
