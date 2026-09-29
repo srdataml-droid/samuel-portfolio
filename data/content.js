@@ -1,8 +1,6 @@
 /**
- * Real content lives here. Both collections are intentionally empty — the
- * portfolio is new and nothing has been published yet. Add an object to a
- * list and the matching page switches from its empty state to a real grid
- * with no other change required.
+ * Real content lives here. Add an object to a list and the matching pages
+ * pick it up with no other change; only publish what is actually true.
  *
  * Project shape:
  *   {
@@ -32,7 +30,17 @@
 
 export const categories = ['All', 'AI/ML', 'Full Stack', 'Tools', 'Experiments'];
 
-export const projects = [];
+export const projects = [
+  {
+    slug: 'ai-front-desk',
+    title: 'AI Front Desk',
+    category: 'AI/ML',
+    built: 'A voice agent that answers calls and books service jobs, 24/7.',
+    tags: ['Voice AI', 'Automation', 'Booking'],
+    image: 'https://i.ytimg.com/vi/BN5SOfcj9Q4/hqdefault.jpg',
+    href: 'https://www.youtube.com/watch?v=BN5SOfcj9Q4',
+  },
+];
 
 export const videos = [
   // Listed by hand so the Lab always shows it; later uploads arrive automatically from the channel.
@@ -60,4 +68,6 @@ export const posts = [];
  * Things currently being explored. Empty until Samuel lists real ones.
  * Shape: { title: 'Multi-agent workflows', state: 'Testing', done: false }
  */
-export const experiments = [];
+export const experiments = [
+  { title: 'AI front desk voice agents', state: 'Building', done: false },
+];

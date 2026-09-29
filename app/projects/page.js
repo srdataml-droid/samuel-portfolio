@@ -25,7 +25,8 @@ export default function ProjectsPage() {
         <DeskScene scene="projects" priority />
       </section>
 
-      <section className="section">
+      <section className="section" aria-labelledby="project-list">
+        <h2 id="project-list" className="sr-only">All projects</h2>
         <ProjectFilters projects={projects} />
       </section>
     </>

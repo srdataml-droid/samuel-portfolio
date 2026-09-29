@@ -20,7 +20,7 @@ time: both write to `.next/`.
 | What | Where |
 | --- | --- |
 | Name, canonical URL, contact email, nav, socials, service copy | `data/site.js` |
-| Projects, videos, experiments (currently empty on purpose) | `data/content.js` |
+| Projects, videos, experiments, Instagram/TikTok posts | `data/content.js` |
 | Routes | `app/*/page.js`, `app/not-found.js` |
 | Colour tokens, type, every style | `app/globals.css` |
 | Shell (sidebar, mobile nav, footer, chat drawer) | `components/` |

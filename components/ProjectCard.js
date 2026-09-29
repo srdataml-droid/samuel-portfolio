@@ -2,8 +2,8 @@ import Image from 'next/image';
 import { External } from './Icons';
 
 /**
- * Renders one entry from `data/content.js`. Unused while the list is empty —
- * it exists so adding a project object is the only work required later.
+ * One project from `data/content.js`. Images under /public go through next/image;
+ * a full URL (such as a YouTube thumbnail) is used as is.
  */
 export default function ProjectCard({ project }) {
   const { title, problem, built, outcome, tags = [], image, href } = project;
@@ -11,7 +11,9 @@ export default function ProjectCard({ project }) {
   return (
     <article className="card project-card">
       <div className="project-art">
-        {image && <Image src={image} alt="" width={640} height={360} />}
+        {image && (image.startsWith('http')
+          ? <img src={image} alt="" width={640} height={360} loading="lazy" decoding="async" />
+          : <Image src={image} alt="" width={640} height={360} />)}
       </div>
 
       <div className="project-body">
