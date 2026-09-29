@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import DeskScene from '@/components/DeskScene';
-import EmptyState, { SlotGrid } from '@/components/EmptyState';
+import EmptyState from '@/components/EmptyState';
 import ProjectCard from '@/components/ProjectCard';
 import VideoCard from '@/components/VideoCard';
 import { projects, videos as manual } from '@/data/content';
@@ -73,13 +73,12 @@ export default async function HomePage() {
           <p className="hand">Engineer, maker, lifelong learner.</p>
         </div>
 
-        <div className="card about-preview" style={{ padding: 'clamp(20px, 3vw, 34px)' }}>
-          <figure className="photo-frame">
-            <div className="photo-slot">
-              <p className="hand">Photo here someday :)</p>
-            </div>
-            <figcaption>Still a work in progress, but a good direction.</figcaption>
-          </figure>
+        <div className={`card about-preview ${site.photo ? '' : 'no-photo'}`} style={{ padding: 'clamp(20px, 3vw, 34px)' }}>
+          {site.photo && (
+            <figure className="photo-frame">
+              <img className="photo" src={site.photo} alt="Samuel Irenikase" width={440} height={550} />
+            </figure>
+          )}
 
           <div>
             <h3 style={{ fontSize: 'clamp(26px, 3vw, 34px)' }}>Hi, I&rsquo;m Samuel.</h3>
@@ -112,20 +111,17 @@ export default async function HomePage() {
             ))}
           </div>
         ) : (
-          <>
-            <EmptyState
-              icon="Grid"
-              title="Nothing pinned here yet. I’m building."
-              note="The first projects are still in progress. When one is genuinely worth showing, it lands here — problem, what I built, and what actually came of it."
-              hand="Curious about what we can build next?"
-            >
-              <Link className="button primary" href="/projects">
-                See the projects page <Icons.Arrow className="arrow" width={15} height={15} />
-              </Link>
-              <Link className="button ghost" href="/services">What I can help with</Link>
-            </EmptyState>
-            <SlotGrid count={3} label="Project slot" />
-          </>
+          <EmptyState
+            icon="Grid"
+            title="New builds are on the way."
+            note="In the meantime, the lab has demos of what I am working on right now."
+            hand="Curious about what we can build next?"
+          >
+            <Link className="button primary" href="/lab">
+              Visit the lab <Icons.Arrow className="arrow" width={15} height={15} />
+            </Link>
+            <Link className="button ghost" href="/services">What I can help with</Link>
+          </EmptyState>
         )}
       </section>
 
@@ -146,8 +142,8 @@ export default async function HomePage() {
         ) : (
           <EmptyState
             icon="Camera"
-            title="The camera will eventually point here."
-            note="Experiments, demos, things that broke, and what I learned from them. Nothing recorded yet — the setup is still being built."
+            title="Fresh experiments are on the way."
+            note="Demos, builds, things that broke, and what I learned from them."
             hand="Progress over perfection."
           >
             <Link className="button ghost" href="/lab">

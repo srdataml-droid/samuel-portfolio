@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import DeskScene from '@/components/DeskScene';
-import { journey, values, focusAreas } from '@/data/site';
+import { journey, values, focusAreas, site } from '@/data/site';
 import * as Icons from '@/components/Icons';
 
 export const metadata = {
@@ -9,7 +9,6 @@ export const metadata = {
 };
 
 const quickFacts = [
-  { icon: 'Pin',    term: 'Based in',        detail: 'Somewhere on Earth 🌍' },
   { icon: 'Laptop', term: 'What I do',       detail: 'AI/ML · Full-stack · Build cool things' },
   { icon: 'Heart',  term: 'Interests',       detail: 'Technology, creativity, nature, coffee, cats (obviously)' },
   { icon: 'Cap',    term: 'Always learning', detail: 'New tools, new ideas, new perspectives' },
@@ -57,13 +56,12 @@ export default function AboutPage() {
 
       {/* ---------------------------------------------------------- story */}
       <section className="section">
-        <div className="story-grid">
-          <figure className="photo-frame">
-            <div className="photo-slot" style={{ aspectRatio: '4 / 5' }}>
-              <p className="hand" style={{ fontSize: 22 }}>Photo here someday :)</p>
-            </div>
-            <figcaption>&ldquo;Still a work in progress, but a good direction.&rdquo;</figcaption>
-          </figure>
+        <div className={`story-grid ${site.photo ? '' : 'no-photo'}`}>
+          {site.photo && (
+            <figure className="photo-frame">
+              <img className="photo" src={site.photo} alt="Samuel Irenikase" width={440} height={550} />
+            </figure>
+          )}
 
           <div>
             <div className="section-head">

@@ -17,7 +17,7 @@ export default function VideoCard({ video }) {
 
   return (
     <article className="video-card">
-      <a className="video-thumb" href={href} target="_blank" rel="noreferrer">
+      <a className="video-thumb" href={href} target="_blank" rel="noreferrer" aria-label={`Watch “${title}”`}>
         {/* YouTube thumbnails come straight from YouTube's image server; local art goes through next/image. */}
         {thumb ? thumb.startsWith('http')
           ? <img src={thumb} alt="" width={640} height={360} loading="lazy" decoding="async" />

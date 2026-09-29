@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import DeskScene from '@/components/DeskScene';
 import VideoCard from '@/components/VideoCard';
-import EmptyState, { SlotGrid } from '@/components/EmptyState';
+import EmptyState from '@/components/EmptyState';
 import { videos as manual, experiments, posts } from '@/data/content';
 import { latestVideos } from '@/lib/youtube';
 import FollowAlong from '@/components/FollowAlong';
@@ -68,8 +68,8 @@ export default async function LabPage() {
             ) : (
               <EmptyState
                 icon="Camera"
-                title="The camera will eventually point here."
-                note="This is where the featured experiment will sit — the build, the wins, the fails, and what I learned. Nothing filmed yet."
+                title="Fresh experiments are on the way."
+                note="The build, the wins, the fails, and what I learned from each one."
                 hand="Progress over perfection."
               >
                 <Link className="button ghost" href="/projects">
@@ -97,7 +97,7 @@ export default async function LabPage() {
                 ))}
               </ul>
             ) : (
-              <p className="muted">Nothing listed yet. Current experiments will be noted here as they begin.</p>
+              <p className="muted">Between experiments right now. The next one starts soon.</p>
             )}
 
             <p className="hand" style={{ marginTop: 18 }}>
@@ -121,28 +121,17 @@ export default async function LabPage() {
       )}
 
       {/* ------------------------------------------------------ video grid */}
-      <section className="section paper">
-        <div className="section-head">
-          <h2>More Videos</h2>
-          <p className="hand">Experiments, tutorials, random ideas, and happy accidents.</p>
-        </div>
-
-        {rest.length > 0 ? (
+      {rest.length > 0 && (
+        <section className="section paper">
+          <div className="section-head">
+            <h2>More Videos</h2>
+            <p className="hand">Experiments, tutorials, random ideas, and happy accidents.</p>
+          </div>
           <div className="cols-3">
             {rest.map((video) => <VideoCard key={video.slug} video={video} />)}
           </div>
-        ) : (
-          <>
-            <EmptyState
-              icon="Play"
-              title="No videos published yet."
-              note="When there are, they land in this grid — title, date, length, and a one-line note on what actually happened."
-              hand="More experiments ahead…"
-            />
-            <SlotGrid count={3} label="Video slot" />
-          </>
-        )}
-      </section>
+        </section>
+      )}
     </>
   );
 }

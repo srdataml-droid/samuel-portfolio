@@ -17,6 +17,11 @@ export const site = {
   url: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
   /** Every mailto: on the site reads this. */
   email: 'samuelirenikase@gmail.com',
+  /**
+   * Portrait for the home and About pages, a file under /public (e.g. '/samuel.webp').
+   * While it is null the photo frame is left out entirely and the text takes the room.
+   */
+  photo: null,
 };
 
 /**

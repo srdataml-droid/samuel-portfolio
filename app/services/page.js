@@ -93,8 +93,8 @@ export default function ServicesPage() {
             <Icons.Grid width={22} height={22} />
             <h3>See the work first</h3>
             <p>
-              The projects page is still filling up — it will show what I built, why,
-              and what came of it.
+              What I built, why, and what came of it, starting with an AI front desk
+              that answers calls and books jobs around the clock.
             </p>
             <Link className="button ghost" href="/projects">
               View Projects <Icons.Arrow className="arrow" width={15} height={15} />
