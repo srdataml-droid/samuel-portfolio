@@ -34,7 +34,16 @@ export const categories = ['All', 'AI/ML', 'Full Stack', 'Tools', 'Experiments']
 
 export const projects = [];
 
-export const videos = [];
+export const videos = [
+  // Listed by hand so the Lab always shows it; later uploads arrive automatically from the channel.
+  {
+    slug: 'ai-front-desk',
+    title: 'I Built an AI Front Desk That Answers Calls & Books Service Jobs 24/7',
+    thumb: 'https://i.ytimg.com/vi/BN5SOfcj9Q4/hqdefault.jpg',
+    href: 'https://www.youtube.com/watch?v=BN5SOfcj9Q4',
+    featured: true,
+  },
+];
 
 /**
  * Instagram and TikTok posts to show on the Lab page, newest first. Paste the
