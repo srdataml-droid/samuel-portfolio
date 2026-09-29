@@ -50,9 +50,9 @@ export const pages = nav.filter((item) => item.href && !item.href.includes('#'))
  * YouTube's public feed, which often refuses requests from servers.
  */
 export const channels = {
-  youtube:   { handle: '', channelId: '' },
-  instagram: { handle: '' },
-  tiktok:    { handle: '' },
+  youtube:   { handle: 'Noirxvii', channelId: 'UCUy0ZD02vcQrjTd2hNYK67Q' },
+  instagram: { handle: 'ai.frontdesk.work' },
+  tiktok:    { handle: 'mintbuilder' },
 };
 
 const at = (handle) => handle.replace(/^@/, '').trim();
