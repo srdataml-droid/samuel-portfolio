@@ -1,5 +1,32 @@
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { openSupabaseStore } from './store-supabase.js';
+
+/**
+ * Picks where leads are kept:
+ * - SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY set -> a Supabase table (use this on Vercel)
+ * - otherwise -> a file on this machine (local runs, Render, Railway)
+ * On Vercel without a database, every request fails loudly with a 503
+ * rather than pretending to save into a folder that is wiped.
+ */
+export async function openLeadStore(env, { file }) {
+  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY)
+    return openSupabaseStore({ url: env.SUPABASE_URL, key: env.SUPABASE_SERVICE_ROLE_KEY });
+  if (env.SUPABASE_URL || env.SUPABASE_SERVICE_ROLE_KEY || env.VERCEL) return unconfiguredStore();
+  return openStore(file);
+}
+
+function unconfiguredStore() {
+  const refuse = async () => {
+    const err = new Error('Lead storage is not set up. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
+    err.status = 503;
+    throw err;
+  };
+  return {
+    status: 'Lead storage NOT set up: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must both be set',
+    get: refuse, all: refuse, findByReference: refuse, save: refuse,
+  };
+}
 
 /**
  * Leads live in one append-only file: every save adds the lead's latest
@@ -29,6 +56,7 @@ export async function openStore(file) {
   let queue = Promise.resolve();
 
   return {
+    status: `Leads stored in ${file}`,
     get: (id) => leads.get(id) || null,
     all: () => [...leads.values()],
     findByReference: (ref) => [...leads.values()].find((l) => l.reference === ref) || null,

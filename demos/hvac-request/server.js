@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { validateRequest } from './public/validate.js';
 import { ACTIONS, createLead, officeStats, officeView, workQueue } from './lead.js';
 import { TIMEZONE, customerEmergency, customerNextStep } from './rules.js';
-import { openStore } from './store.js';
+import { openLeadStore } from './store.js';
 import { createSheetsSync } from './sheets.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
@@ -15,16 +15,28 @@ const LEADS_FILE = process.env.LEADS_FILE || join(ROOT, 'data', 'leads.jsonl');
 
 const PORT = Number(process.env.PORT) || 3100;
 // Where each new request is sent: Zapier, Make, n8n, a Slack or CRM webhook,
-// or your own API. Leave unset and requests are only saved to data/leads.jsonl.
+// or your own API. Leave unset and requests are only saved in the lead store.
 const WEBHOOK_URL = process.env.WEBHOOK_URL || '';
 // Password for the office endpoints (/api/leads). Unset = those endpoints are off,
 // so customer details can never be read without it.
 const OFFICE_TOKEN = process.env.OFFICE_TOKEN || '';
 const MAX_BODY_BYTES = 16 * 1024;
 
-const store = await openStore(LEADS_FILE);
+// A Supabase table when SUPABASE_* is set (needed on Vercel), otherwise a local file.
+const store = await openLeadStore(process.env, { file: LEADS_FILE });
 // Copies every lead to a Google Sheet when GOOGLE_* settings are present (see sheets.js).
-export const sheets = createSheetsSync(process.env, { getLead: (id) => store.get(id) });
+// With Supabase, the table remembers which rows still need writing, so retries
+// don't depend on this machine staying alive.
+export const sheets = createSheetsSync(process.env, {
+  getLead: (id) => store.get(id),
+  onSynced: store.markSynced ? (lead) => store.markSynced(lead) : null,
+  retryInMemory: !store.unsynced,
+});
+
+// On Vercel the machine can be frozen as soon as the reply is sent. waitUntil
+// (Vercel's own helper) keeps it running until the sheet write has finished.
+// A normal server keeps running anyway, so elsewhere it does nothing.
+const { waitUntil } = process.env.VERCEL ? await import('@vercel/functions') : { waitUntil: () => {} };
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -40,6 +52,20 @@ function sendJSON(res, status, body) {
 }
 
 async function readJSON(req) {
+  // On Vercel the body may already have been read and parsed for us. Its
+  // parser throws on malformed JSON the moment req.body is read.
+  let body;
+  try {
+    body = req.body;
+    if (Buffer.isBuffer(body)) body = body.toString('utf8');
+    if (typeof body === 'string') body = JSON.parse(body);
+  } catch {
+    throw Object.assign(new Error('Invalid JSON'), { status: 400 });
+  }
+  if (body !== undefined) {
+    if (JSON.stringify(body ?? null).length > MAX_BODY_BYTES) throw Object.assign(new Error('Request too large'), { status: 413 });
+    return body;
+  }
   let size = 0;
   const chunks = [];
   for await (const chunk of req) {
@@ -89,7 +115,7 @@ async function handleRequest(req, res) {
   const lead = createLead(data, { now });
   // Saved before forwarding, so a webhook outage never loses a customer.
   await store.save(lead);
-  sheets.sync(lead); // in the background: a slow or failing Google never delays the customer
+  waitUntil(sheets.sync(lead)); // after the reply: a slow or failing Google never delays the customer
   const delivered = await notify('service_request.created', lead);
   console.log(`[lead] ${lead.reference} P${lead.triage.priority} ${lead.request.service} due ${lead.followUpDueAt}${WEBHOOK_URL ? ` webhook=${delivered ? 'ok' : 'FAILED'}` : ''}`);
 
@@ -133,16 +159,19 @@ async function handleOffice(req, res, parts) {
     if (req.method !== 'GET') return sendJSON(res, 405, { ok: false, error: 'Use GET' });
     const all = new URL(req.url, 'http://localhost').searchParams.has('all');
     if (!all) {
-      const leads = workQueue(store.all(), now);
+      const leads = workQueue(await store.all(), now);
       return sendJSON(res, 200, { ok: true, count: leads.length, leads });
     }
-    const leads = officeView(store.all(), now);
+    // The office screen asks every 30 seconds: a good moment to rewrite any
+    // sheet rows an earlier Google outage left behind.
+    if (sheets.enabled && store.unsynced) waitUntil(catchUpSheet());
+    const leads = officeView(await store.all(), now);
     return sendJSON(res, 200, {
       ok: true, count: leads.length, timezone: TIMEZONE, stats: officeStats(leads), leads,
     });
   }
 
-  const lead = store.get(idOrRef) || store.findByReference(idOrRef.toUpperCase());
+  const lead = (await store.get(idOrRef)) || (await store.findByReference(idOrRef.toUpperCase()));
   if (!lead) return sendJSON(res, 404, { ok: false, error: 'No lead with that id or reference.' });
 
   // GET /api/leads/HV-7K2Q9M
@@ -157,10 +186,19 @@ async function handleOffice(req, res, parts) {
 
   const updated = ACTIONS[action](lead, await readJSON(req), now);
   await store.save(updated);
-  sheets.sync(updated);
+  waitUntil(sheets.sync(updated));
   await notify('lead.updated', updated, { action });
   console.log(`[lead] ${updated.reference} ${action} -> ${updated.leadStatus}/${updated.bookingStatus}`);
   return sendJSON(res, 200, { ok: true, lead: updated });
+}
+
+/** Rewrites sheet rows that a failed or interrupted write left out of date. */
+async function catchUpSheet() {
+  try {
+    for (const lead of await store.unsynced()) await sheets.sync(lead);
+  } catch (err) {
+    console.error(`[sheets] catch-up failed: ${err.message}`);
+  }
 }
 
 async function serveStatic(req, res) {
@@ -179,9 +217,14 @@ async function serveStatic(req, res) {
   }
 }
 
-export const server = createServer(async (req, res) => {
+/**
+ * Every request comes through here: from the local server below, or from the
+ * Vercel functions in api/, which pass the path they were built for (so this
+ * doesn't depend on how Vercel rewrites the URL).
+ */
+export async function handle(req, res, { pathname } = {}) {
   try {
-    const path = req.url.split('?')[0];
+    const path = pathname || req.url.split('?')[0];
     if (path === '/api/requests') {
       if (req.method !== 'POST') return sendJSON(res, 405, { ok: false, error: 'Use POST' });
       return await handleRequest(req, res);
@@ -196,13 +239,30 @@ export const server = createServer(async (req, res) => {
     if (status === 500) console.error(err);
     return sendJSON(res, status, { ok: false, error: status === 500 ? 'Something went wrong' : err.message });
   }
-});
+}
+
+/**
+ * Builds the handler for one file in api/. `names` are the [bracketed]
+ * parts of its file path: Vercel passes them as query parameters; if it
+ * doesn't, they're read from the URL itself.
+ */
+export function vercelRoute(prefix, names = []) {
+  return (req, res) => {
+    const url = new URL(req.url, 'http://localhost');
+    const rest = url.pathname.startsWith(`${prefix}/`) ? url.pathname.slice(prefix.length + 1).split('/') : [];
+    const parts = names.map((name, i) => url.searchParams.get(name) ?? decodeURIComponent(rest[i] ?? ''));
+    return handle(req, res, { pathname: [prefix, ...parts.map(encodeURIComponent)].join('/') });
+  };
+}
+
+export const server = createServer((req, res) => handle(req, res));
 
 // Start listening only when run directly (`node server.js`), not when a test imports it.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   server.listen(PORT, () => {
     console.log(`HVAC request page: http://localhost:${PORT}`);
-    console.log(WEBHOOK_URL ? `Forwarding requests to ${new URL(WEBHOOK_URL).host}` : 'No WEBHOOK_URL set: requests are saved to data/leads.jsonl only');
+    console.log(store.status);
+    console.log(WEBHOOK_URL ? `Forwarding requests to ${new URL(WEBHOOK_URL).host}` : 'No WEBHOOK_URL set: nothing is forwarded');
     console.log(sheets.status);
     console.log(OFFICE_TOKEN ? 'Office endpoints on: /api/leads' : 'Office endpoints off (set OFFICE_TOKEN to turn them on)');
   });

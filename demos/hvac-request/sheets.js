@@ -138,8 +138,16 @@ function sheetsClient({ sheetId, tab, apiUrl, accessToken }) {
 /**
  * Settings come from the environment. Returns a sync that does nothing (and
  * says so once at start-up) when Google isn't configured.
+ *
+ * getLead(id)      latest saved version of a lead, for retries (may be async)
+ * onSynced(lead)   called once the sheet row matches that version
+ * retryInMemory    retry failures on a timer. Turn off where the store tracks
+ *                  unsynced leads itself (Supabase on Vercel), since a
+ *                  serverless machine may not live long enough to retry.
  */
-export function createSheetsSync(env = process.env, { getLead = () => null, log = console } = {}) {
+export function createSheetsSync(env = process.env, {
+  getLead = () => null, onSynced = null, retryInMemory = true, log = console,
+} = {}) {
   const sheetId = env.GOOGLE_SHEET_ID || '';
   const email = env.GOOGLE_SERVICE_ACCOUNT_EMAIL || '';
   // Hosting dashboards store the key on one line with literal "\n"s; turn them back into newlines.
@@ -151,7 +159,7 @@ export function createSheetsSync(env = process.env, { getLead = () => null, log 
     const status = configured === 0
       ? 'Google Sheets sync off (set GOOGLE_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_PRIVATE_KEY to turn it on)'
       : 'Google Sheets sync OFF: GOOGLE_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_PRIVATE_KEY must all be set';
-    return { enabled: false, status, sync() {}, idle: async () => {}, retryFailed: async () => {}, stop() {} };
+    return { enabled: false, status, sync: async () => false, idle: async () => {}, retryFailed: async () => {}, stop() {} };
   }
 
   const client = sheetsClient({
@@ -184,31 +192,46 @@ export function createSheetsSync(env = process.env, { getLead = () => null, log 
   let queue = Promise.resolve();
   const failed = new Set();
 
+  /** Queue a write of this lead's row. Resolves true once the row matches, false if it failed. */
   function sync(lead) {
-    queue = queue.then(async () => {
+    const job = queue.then(async () => {
       try {
         await upsert(lead);
-        failed.delete(lead.id);
       } catch (err) {
         failed.add(lead.id);
         log.error(`[sheets] ${lead.reference} not synced, will retry: ${err.message}`);
+        return false;
       }
+      failed.delete(lead.id);
+      try {
+        await onSynced?.(lead);
+      } catch (err) {
+        log.error(`[sheets] ${lead.reference} synced, but couldn't record it: ${err.message}`);
+      }
+      return true;
     });
-    return queue;
+    queue = job;
+    return job;
   }
 
   /** Try every lead whose last sync failed again, using its latest saved version. */
   async function retryFailed() {
     for (const id of [...failed]) {
-      const lead = getLead(id);
+      let lead = null;
+      try {
+        lead = await getLead(id);
+      } catch (err) {
+        log.error(`[sheets] couldn't load lead ${id} to retry: ${err.message}`);
+        continue;
+      }
       if (lead) sync(lead);
       else failed.delete(id);
     }
     await queue;
   }
 
-  const timer = setInterval(() => { if (failed.size) retryFailed(); }, RETRY_EVERY);
-  timer.unref();
+  const timer = retryInMemory ? setInterval(() => { if (failed.size) retryFailed(); }, RETRY_EVERY) : null;
+  timer?.unref();
 
   return {
     enabled: true,
@@ -218,6 +241,6 @@ export function createSheetsSync(env = process.env, { getLead = () => null, log 
     failedCount: () => failed.size,
     /** Resolves once every queued write has finished. */
     idle: () => queue,
-    stop: () => clearInterval(timer),
+    stop: () => timer && clearInterval(timer),
   };
 }

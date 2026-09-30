@@ -4,10 +4,15 @@
   "private": true,
   "type": "module",
   "description": "HVAC service request page: form, validation, webhook hand-off, confirmation.",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node server.js",
     "test": "node --test",
     "sheets:backfill": "node sheets-backfill.js"
+  },
+  "dependencies": {
+    "@vercel/functions": "^3.9.9"
   }
 }

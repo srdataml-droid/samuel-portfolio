@@ -1,72 +1,20 @@
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { createServer } from 'node:http';
-import { createVerify, generateKeyPairSync } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { COLUMNS, createSheetsSync, leadToRow } from './sheets.js';
 import { createLead, recordContact, book } from './lead.js';
+import { startFakeGoogle } from './fakes.js';
 
-// ---- A stand-in for Google: the token endpoint and the three Sheets calls we use.
-
-const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
-const PEM = privateKey.export({ type: 'pkcs8', format: 'pem' });
-const EMAIL = 'hvac-demo@example-project.iam.gserviceaccount.com';
-
+// A stand-in for Google (fakes.js): checks the signed sign-in and RAW writes.
+let fake;
 const google = {
-  grid: [],      // the sheet: grid[0] is row 1
-  down: false,   // answer everything with 503
-  writes: [],    // valueInputOption of every write
-  server: null,
-  url: '',
+  get grid() { return fake.state.grid; }, set grid(v) { fake.state.grid = v; },
+  get down() { return fake.state.down; }, set down(v) { fake.state.down = v; },
+  get writes() { return fake.state.writes; },
 };
-
-function fakeGoogle(req, res) {
-  let body = '';
-  req.on('data', (c) => (body += c));
-  req.on('end', () => {
-    const send = (status, data) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(data)); };
-    if (google.down) return send(503, { error: { message: 'The service is currently unavailable.' } });
-    const url = new URL(req.url, 'http://x');
-
-    if (url.pathname === '/token') {
-      const assertion = new URLSearchParams(body).get('assertion') || '';
-      const [h, c, sig] = assertion.split('.');
-      const valid = createVerify('RSA-SHA256').update(`${h}.${c}`).verify(publicKey, sig, 'base64url');
-      const claims = JSON.parse(Buffer.from(c, 'base64url').toString());
-      if (!valid || claims.iss !== EMAIL || !claims.scope.includes('spreadsheets'))
-        return send(400, { error: 'invalid_grant' });
-      return send(200, { access_token: 'good-token', expires_in: 3600 });
-    }
-
-    if (req.headers.authorization !== 'Bearer good-token') return send(401, { error: { message: 'unauthenticated' } });
-    const m = decodeURIComponent(url.pathname).match(/^\/v4\/spreadsheets\/sheet-123\/values\/'Leads'!([^:]+(?::[A-Z]+\d*)?)(:append)?$/);
-    if (!m) return send(400, { error: { message: `Unable to parse range: ${url.pathname}` } });
-    const [, range, append] = m;
-
-    if (req.method === 'GET') {
-      if (range === 'A1:R1') return send(200, { values: google.grid.length ? [google.grid[0]] : undefined });
-      if (range === 'A:A') return send(200, { values: google.grid.map((r) => (r[0] ? [r[0]] : [])) });
-    }
-    google.writes.push(url.searchParams.get('valueInputOption'));
-    if (url.searchParams.get('valueInputOption') !== 'RAW') return send(400, { error: { message: 'expected RAW' } });
-    const { values } = JSON.parse(body);
-    if (req.method === 'POST' && append) { google.grid.push(values[0]); return send(200, {}); }
-    const row = Number(range.match(/^A(\d+)/)?.[1]);
-    if (req.method === 'PUT' && row) { google.grid[row - 1] = values[0]; return send(200, {}); }
-    return send(400, { error: { message: 'unexpected call' } });
-  });
-}
-
-const env = () => ({
-  GOOGLE_SHEET_ID: 'sheet-123',
-  GOOGLE_SERVICE_ACCOUNT_EMAIL: EMAIL,
-  // Stored the way hosting dashboards store it: one line, literal "\n"s.
-  GOOGLE_PRIVATE_KEY: PEM.replace(/\n/g, '\\n'),
-  GOOGLE_SHEETS_API_URL: google.url,
-  GOOGLE_TOKEN_URL: `${google.url}/token`,
-});
+const env = () => fake.env();
 
 const quietLog = () => {
   const lines = [];
@@ -81,12 +29,9 @@ const request = {
 const dataRows = () => google.grid.slice(1);
 const col = (row, name) => row[COLUMNS.indexOf(name)];
 
-before(async () => {
-  google.server = createServer(fakeGoogle).listen(0);
-  google.url = `http://127.0.0.1:${google.server.address().port}`;
-});
-after(() => google.server.close());
-beforeEach(() => { google.grid = []; google.down = false; google.writes = []; });
+before(async () => { fake = await startFakeGoogle(); });
+after(() => fake.close());
+beforeEach(() => fake.reset());
 
 // ---- Settings
 
