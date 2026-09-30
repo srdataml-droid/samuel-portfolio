@@ -7,6 +7,7 @@ import { validateRequest } from './public/validate.js';
 import { ACTIONS, createLead, officeStats, officeView, workQueue } from './lead.js';
 import { TIMEZONE, customerEmergency, customerNextStep } from './rules.js';
 import { openStore } from './store.js';
+import { createSheetsSync } from './sheets.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(ROOT, 'public');
@@ -22,6 +23,8 @@ const OFFICE_TOKEN = process.env.OFFICE_TOKEN || '';
 const MAX_BODY_BYTES = 16 * 1024;
 
 const store = await openStore(LEADS_FILE);
+// Copies every lead to a Google Sheet when GOOGLE_* settings are present (see sheets.js).
+export const sheets = createSheetsSync(process.env, { getLead: (id) => store.get(id) });
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -86,6 +89,7 @@ async function handleRequest(req, res) {
   const lead = createLead(data, { now });
   // Saved before forwarding, so a webhook outage never loses a customer.
   await store.save(lead);
+  sheets.sync(lead); // in the background: a slow or failing Google never delays the customer
   const delivered = await notify('service_request.created', lead);
   console.log(`[lead] ${lead.reference} P${lead.triage.priority} ${lead.request.service} due ${lead.followUpDueAt}${WEBHOOK_URL ? ` webhook=${delivered ? 'ok' : 'FAILED'}` : ''}`);
 
@@ -153,6 +157,7 @@ async function handleOffice(req, res, parts) {
 
   const updated = ACTIONS[action](lead, await readJSON(req), now);
   await store.save(updated);
+  sheets.sync(updated);
   await notify('lead.updated', updated, { action });
   console.log(`[lead] ${updated.reference} ${action} -> ${updated.leadStatus}/${updated.bookingStatus}`);
   return sendJSON(res, 200, { ok: true, lead: updated });
@@ -198,6 +203,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   server.listen(PORT, () => {
     console.log(`HVAC request page: http://localhost:${PORT}`);
     console.log(WEBHOOK_URL ? `Forwarding requests to ${new URL(WEBHOOK_URL).host}` : 'No WEBHOOK_URL set: requests are saved to data/leads.jsonl only');
+    console.log(sheets.status);
     console.log(OFFICE_TOKEN ? 'Office endpoints on: /api/leads' : 'Office endpoints off (set OFFICE_TOKEN to turn them on)');
   });
 }

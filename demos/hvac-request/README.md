@@ -23,8 +23,10 @@ Send each request to a webhook (Zapier, Make, n8n, a CRM, Slack, your own API):
 WEBHOOK_URL=https://hooks.zapier.com/hooks/catch/xxx/yyy npm start
 ```
 
-Other settings: `PORT` (default 3100), `LEADS_FILE` (default `data/leads.jsonl`)
-and `OFFICE_TOKEN` (turns on the office API, below).
+Other settings: `PORT` (default 3100), `LEADS_FILE` (default `data/leads.jsonl`),
+`OFFICE_TOKEN` (turns on the office screen and API, below) and the `GOOGLE_*`
+settings (copy every lead to a Google Sheet, below). Without any of them the
+demo runs as is.
 
 ## What happens on submit
 
@@ -193,6 +195,87 @@ With `WEBHOOK_URL` set, every change is also sent there as
 `{ "event": "lead.updated", "action": "book", "lead": {...} }`, so a CRM,
 spreadsheet or Slack channel can stay in step.
 
+## Google Sheets sync
+
+Optional. When it's on, every lead has exactly one row in a Google Sheet, so
+the owner can see the whole pipeline outside the office screen.
+
+- **New request:** a row is added.
+- **Status change:** that same row is updated, found by Lead ID (column A).
+  The ID is looked up fresh every time, so sorting, filtering or moving rows in
+  the sheet is safe and never causes a duplicate.
+- **Google unavailable:** the lead is saved locally and the customer gets their
+  confirmation as normal. The failure is logged as
+  `[sheets] HV-XXXXXX not synced, will retry: ...`, and the lead is retried every
+  3 minutes with its latest version.
+- **Not configured:** sync is simply off. The server says so on start-up.
+
+The local file stays the record; the sheet is a copy. Writes happen in the
+background after the lead is saved, so a slow Google never slows the form.
+Everything is written as plain text, so a customer typing `=SOMETHING(...)`
+can't create a formula in the owner's sheet.
+
+Columns (created in row 1 automatically): Lead ID, Received At, Customer Name,
+Phone, Email, Service, Problem, Priority, Hazard, Lead Status, Booking Status,
+Follow-up Needed, Callback Deadline, Preferred Day, Preferred Time, AI Summary,
+Last Contact, Updated At. Times are the business's time zone (`TIMEZONE` in
+`rules.js`), written as `2026-09-30 14:07` so they sort correctly.
+
+### Settings
+
+| Variable | Required | What it is |
+| --- | --- | --- |
+| `GOOGLE_SHEET_ID` | yes | The long ID in the sheet's URL: `docs.google.com/spreadsheets/d/`**`THIS_PART`**`/edit` |
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | yes | The service account's email, e.g. `hvac-sync@my-project.iam.gserviceaccount.com` (`client_email` in its key file) |
+| `GOOGLE_PRIVATE_KEY` | yes | The service account's private key (`private_key` in its key file), the whole `-----BEGIN PRIVATE KEY-----...-----END PRIVATE KEY-----` text. Real line breaks or `\n` both work |
+| `GOOGLE_SHEET_TAB` | no | The tab to write to. Default `Leads` |
+
+All three required ones must be set, or sync stays off (the start-up log says
+which is missing). Never commit these values; `.env*` files are already
+ignored by git.
+
+### Setup (about 10 minutes, free)
+
+1. **Create the sheet.** In Google Sheets, make a new spreadsheet and rename
+   its first tab to `Leads` (or set `GOOGLE_SHEET_TAB` to the tab's name). Leave
+   the tab empty; the header row is written for you. Copy the ID from the URL.
+2. **Create a Google Cloud project** at console.cloud.google.com (or use an
+   existing one).
+3. **Turn on the Sheets API:** APIs & Services → Library → "Google Sheets API"
+   → Enable.
+4. **Create a service account:** IAM & Admin → Service Accounts → Create. Give
+   it a name like `hvac-sync`. It needs no roles in the project.
+5. **Make a key:** open the service account → Keys → Add key → Create new key
+   → JSON. A file downloads. Keep it private; it's a password.
+6. **Share the sheet with the service account:** in the sheet, Share → paste
+   the service account's email → Editor. (Without this, Google answers 403.)
+7. **Set the variables** from the key file: `client_email` →
+   `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `private_key` → `GOOGLE_PRIVATE_KEY`, plus
+   `GOOGLE_SHEET_ID`. Locally:
+
+   ```bash
+   export GOOGLE_SHEET_ID='1AbC...xyz'
+   export GOOGLE_SERVICE_ACCOUNT_EMAIL='hvac-sync@my-project.iam.gserviceaccount.com'
+   export GOOGLE_PRIVATE_KEY="$(node -p "require('./path/to/key.json').private_key")"
+   npm start
+   ```
+
+   On Render, Railway or similar, paste the same three values into the
+   service's environment variables. The private key can be pasted as one line
+   with `\n` in it, exactly as it appears in the JSON file.
+8. **Check it:** the start-up log should say `Google Sheets sync on: tab "Leads"`.
+   Submit a request on the page; its row appears within a few seconds.
+9. **Bring in older leads** (optional): `npm run sheets:backfill` writes a row
+   for every lead already saved locally. It's safe to run again; it updates
+   rather than duplicates. Also run it if the server restarted while Google
+   was unreachable, since the automatic retry list is kept in memory.
+
+**If rows don't appear**, the server log has a `[sheets]` line with Google's
+reason: 403 means the sheet isn't shared with the service account, 404 means a
+wrong `GOOGLE_SHEET_ID`, "Unable to parse range" means the tab name doesn't
+match, and "isn't our header" means the tab already had other data in row 1
+(use an empty tab).
+
 ## Files
 
 | File | What it does |
@@ -205,6 +288,8 @@ spreadsheet or Slack channel can stay in step.
 | `lead.js` | The lead record, the office actions (contact, qualify, book, complete, cancel, lost), which actions each lead allows, office order and summary numbers |
 | `store.js` | Saves leads to `data/leads.jsonl`, one line per change |
 | `server.js` | Serves the page, the customer endpoint and the office endpoints |
+| `sheets.js` | Google Sheets sync: one row per lead, updated in place |
+| `sheets-backfill.js` | `npm run sheets:backfill`: writes every saved lead to the sheet |
 | `mock-lead.json` | A real lead, produced by the code |
 | `*.test.js` | `npm test` |
 
