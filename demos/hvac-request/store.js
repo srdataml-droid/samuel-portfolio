@@ -17,8 +17,10 @@ export async function openLeadStore(env, { file }) {
 }
 
 function unconfiguredStore() {
+  // The reason goes to the server log; the caller only hears "unavailable".
   const refuse = async () => {
-    const err = new Error('Lead storage is not set up. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
+    console.error('[store] Lead storage is not set up: set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
+    const err = new Error('Lead storage is unavailable. Please try again.');
     err.status = 503;
     throw err;
   };
