@@ -4,8 +4,8 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { extname, join, normalize, dirname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateRequest } from './public/validate.js';
-import { ACTIONS, createLead, workQueue } from './lead.js';
-import { customerNextStep } from './rules.js';
+import { ACTIONS, createLead, officeStats, officeView, workQueue } from './lead.js';
+import { TIMEZONE, customerEmergency, customerNextStep } from './rules.js';
 import { openStore } from './store.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
@@ -89,12 +89,20 @@ async function handleRequest(req, res) {
   const delivered = await notify('service_request.created', lead);
   console.log(`[lead] ${lead.reference} P${lead.triage.priority} ${lead.request.service} due ${lead.followUpDueAt}${WEBHOOK_URL ? ` webhook=${delivered ? 'ok' : 'FAILED'}` : ''}`);
 
+  // A possible gas leak, carbon monoxide or fire gets its own alert, so a
+  // webhook can text the owner or on-call tech straight away.
+  const emergency = customerEmergency(lead);
+  if (emergency) {
+    console.log(`[SAFETY] ${lead.reference} ${lead.triage.hazard}: "${lead.triage.safetyConcern}" ${lead.customer.phone}`);
+    await notify('safety_alert', lead, { hazard: lead.triage.hazard });
+  }
+
   return sendJSON(res, 201, {
     ok: true,
     reference: lead.reference,
     firstName: data.name.split(/\s+/)[0],
     nextStep: customerNextStep(lead, now),
-    safetyNotice: Boolean(lead.triage.safetyConcern),
+    emergency,
   });
 }
 
@@ -115,14 +123,19 @@ async function handleOffice(req, res, parts) {
   const now = new Date();
 
   // GET /api/leads            the call list: who to contact, most urgent first
-  // GET /api/leads?all=1      every lead
+  // GET /api/leads?all=1      every lead, in office-screen order, with the
+  //                           summary numbers and the buttons each lead allows
   if (!idOrRef) {
     if (req.method !== 'GET') return sendJSON(res, 405, { ok: false, error: 'Use GET' });
     const all = new URL(req.url, 'http://localhost').searchParams.has('all');
-    const leads = all
-      ? store.all().sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      : workQueue(store.all(), now);
-    return sendJSON(res, 200, { ok: true, count: leads.length, leads });
+    if (!all) {
+      const leads = workQueue(store.all(), now);
+      return sendJSON(res, 200, { ok: true, count: leads.length, leads });
+    }
+    const leads = officeView(store.all(), now);
+    return sendJSON(res, 200, {
+      ok: true, count: leads.length, timezone: TIMEZONE, stats: officeStats(leads), leads,
+    });
   }
 
   const lead = store.get(idOrRef) || store.findByReference(idOrRef.toUpperCase());
@@ -134,7 +147,7 @@ async function handleOffice(req, res, parts) {
     return sendJSON(res, 200, { ok: true, lead });
   }
 
-  // POST /api/leads/HV-7K2Q9M/contact | book | complete | cancel | lost
+  // POST /api/leads/HV-7K2Q9M/contact | qualify | book | complete | cancel | lost
   if (req.method !== 'POST') return sendJSON(res, 405, { ok: false, error: 'Use POST' });
   if (!Object.hasOwn(ACTIONS, action)) return sendJSON(res, 404, { ok: false, error: `Unknown action. Use one of: ${Object.keys(ACTIONS).join(', ')}.` });
 
@@ -147,7 +160,8 @@ async function handleOffice(req, res, parts) {
 
 async function serveStatic(req, res) {
   const url = new URL(req.url, 'http://localhost');
-  const path = url.pathname === '/' ? '/index.html' : decodeURIComponent(url.pathname);
+  const pages = { '/': '/index.html', '/office': '/office.html' };
+  const path = pages[url.pathname] || decodeURIComponent(url.pathname);
   const file = normalize(join(PUBLIC_DIR, path));
   if (!file.startsWith(PUBLIC_DIR + sep)) return sendJSON(res, 404, { ok: false });
   try {

@@ -147,6 +147,10 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--b
 .fine { margin: 10px 0 0; text-align: center; }
 
 /* ---- Thank you */
+.emergency { margin-bottom: 24px; padding: 18px 20px; border-radius: 10px; background: var(--error-bg); border: 2px solid var(--error); color: #7a1a12; }
+.emergency h2 { font-size: 20px; color: var(--error); }
+.emergency ol { margin: 10px 0; padding-left: 22px; display: grid; gap: 6px; font-weight: 600; }
+.emergency p { margin: 0; font-size: 14px; }
 .thanks { outline: none; }
 .check { width: 52px; height: 52px; border-radius: 50%; background: #e7f6ec; color: var(--ok); display: grid; place-items: center; margin-bottom: 16px; }
 .check svg { width: 28px; height: 28px; }

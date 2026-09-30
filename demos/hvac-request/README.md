@@ -58,14 +58,28 @@ Every value is a default for a real owner to confirm.
 | This week | 3 | 4 office hours |
 | Flexible | 4 | 8 office hours |
 
-- Mentions **gas, smoke, a burning smell, sparks or carbon monoxide** anywhere →
-  priority 1, whatever they picked. Their confirmation also tells them to leave
-  the house and call 911 if they smell gas or smoke.
+- Mentions **gas (or rotten eggs), carbon monoxide, smoke, a burning smell or
+  sparks** anywhere → priority 1, whatever they picked. See "Safety" below.
 - Mentions **a baby, an elderly or sick person, someone pregnant, or medical
   equipment** → one level more urgent.
 
 "Office hours" means Mon to Fri 7am to 7pm, Sat 8am to 4pm, Chicago time. A
 "soon" request at 10pm Friday is due at 10am Saturday, not at midnight.
+
+**Safety.** A request that mentions a hazard never tells the customer to wait
+for a callback. Their confirmation opens with a red emergency box whose steps
+fit the hazard (`EMERGENCY_STEPS` in `rules.js`):
+
+| Hazard | The customer is told to |
+| --- | --- |
+| Gas | leave the house, not touch switches or use the phone inside, call 911 or the gas company from outside |
+| Carbon monoxide | get everyone to fresh air, call 911, not go back in until told it's safe |
+| Fire / electrical | get out and call 911 if there's smoke or flames; otherwise switch the system off if safe |
+
+The request is still saved and the office still gets it at priority 1 with a
+30-minute callback. The server logs a `[SAFETY]` line and, with `WEBHOOK_URL`
+set, sends a separate `{ "event": "safety_alert", "hazard": "gas", "lead": {...} }`
+so Zapier or similar can text the owner straight away.
 
 **2. The promise matches the deadline.** The confirmation page doesn't hard-code
 "we'll call within X". The server works out the real deadline and says it in
@@ -85,6 +99,7 @@ bookingStatus  not_booked → tentative → booked → completed
 | Calls, **no answer** | attempt counted | retry in 15 min (P1) or 2 office hours |
 | 4th unanswered call in a row, nothing booked | lead → `lost`, reason `unreachable` | none |
 | Calls, **reached** | `new`/`lost` → `contacted` | book within 4 office hours |
+| Qualifies it (a real job) | `new`/`contacted` → `qualified` | book within 4 office hours |
 | Books, not confirmed | `qualified`, `tentative` | confirm within 4 office hours, and at least 1 hour before the visit starts |
 | Books, confirmed | `qualified`, `booked` | none until the visit |
 | Visit done | `won`, `completed` | none |
@@ -119,6 +134,34 @@ the first sentence of the description. It is the only function to replace
 when a language model is added; nothing else changes. The field keeps its name
 so that swap needs no data migration.
 
+## Office screen
+
+`http://localhost:3100/office`, for the owner or whoever answers the phone.
+Start the server with `OFFICE_TOKEN=some-long-secret npm start` and sign in
+with that password. The password is kept for the browser tab only. The page
+itself contains no customer data; everything comes from the office API, which
+refuses anyone without the password.
+
+- **Five numbers at the top:**
+  - New leads: nobody has spoken to them yet.
+  - Need follow-up: the office owes them something.
+  - Urgent: open, priority 1, not yet booked. The box turns red when it's above zero.
+  - Booked: a confirmed visit is in place.
+  - Won: job done.
+- **One row per request:** priority (with a SAFETY badge for hazards), customer
+  and phone (tap to call), service and summary, when it came in, the callback
+  deadline (red "Overdue" once passed), lead status, booking status, follow-up.
+- **Order:** overdue first, then other follow-ups by priority and deadline,
+  then booked visits, then won and lost.
+- **Buttons:** Mark Contacted, Mark Qualified, Mark Booked (asks for day and
+  window), Mark Completed, Mark Cancelled (asks to confirm), Mark Lost (asks
+  for a reason). A lead shows only the buttons its current status allows. The
+  server works these out with the same rules that enforce the moves
+  (`availableActions` in `lead.js`), so the screen can't offer a move the rules
+  refuse.
+- Refreshes every 30 seconds, so new requests appear without reloading.
+- On phones each request becomes a card.
+
 ## Office API
 
 Customer details are private, so these endpoints are off until you set a
@@ -128,9 +171,10 @@ password: `OFFICE_TOKEN=some-long-secret npm start`. Send it as
 | Request | Does |
 | --- | --- |
 | `GET /api/leads` | the call list |
-| `GET /api/leads?all=1` | every lead, newest first |
+| `GET /api/leads?all=1` | every lead in office-screen order, each with its allowed `actions`, plus `stats` and `timezone` |
 | `GET /api/leads/HV-7K2Q9M` | one lead, by reference or id |
 | `POST /api/leads/HV-7K2Q9M/contact` | `{ "outcome": "reached" \| "no_answer" \| "left_message", "channel": "phone", "by": "Maria", "note": "..." }` |
+| `POST /api/leads/HV-7K2Q9M/qualify` | `{ "note": "..." }` |
 | `POST /api/leads/HV-7K2Q9M/book` | `{ "date": "2026-10-02", "window": "morning", "confirmed": true, "technician": "Luis" }` |
 | `POST /api/leads/HV-7K2Q9M/complete` | `{ "note": "..." }` |
 | `POST /api/leads/HV-7K2Q9M/cancel` | `{ "reason": "..." }` |
@@ -156,8 +200,9 @@ spreadsheet or Slack channel can stay in step.
 | `public/index.html`, `styles.css` | The page |
 | `public/app.js` | Fills the choices, shows errors, sends the form, shows the confirmation |
 | `public/validate.js` | The rules and the choice lists, shared by browser and server |
+| `public/office.html`, `office.css`, `office.js` | The office screen at `/office` |
 | `rules.js` | **The business rules**: office hours, deadlines, triage words, the summary |
-| `lead.js` | The lead record and the office actions (contact, book, complete, cancel, lost) |
+| `lead.js` | The lead record, the office actions (contact, qualify, book, complete, cancel, lost), which actions each lead allows, office order and summary numbers |
 | `store.js` | Saves leads to `data/leads.jsonl`, one line per change |
 | `server.js` | Serves the page, the customer endpoint and the office endpoints |
 | `mock-lead.json` | A real lead, produced by the code |

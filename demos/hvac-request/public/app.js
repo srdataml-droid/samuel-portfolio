@@ -149,6 +149,16 @@ function showThanks(result, values) {
   // priority (rules.js), so this promise always matches the office's deadline.
   document.getElementById('step-1').textContent = result.nextStep;
 
+  // Possible gas leak, carbon monoxide or fire: safety instructions come
+  // first, and the page never tells them to wait for a callback.
+  const emergency = document.getElementById('emergency');
+  emergency.hidden = !result.emergency;
+  if (result.emergency) {
+    document.getElementById('emergency-title').textContent = result.emergency.title;
+    document.getElementById('emergency-steps').replaceChildren(
+      ...result.emergency.steps.map((step) => Object.assign(document.createElement('li'), { textContent: step })));
+  }
+
   document.getElementById('form-view').hidden = true;
   const thanks = document.getElementById('thanks-view');
   thanks.hidden = false;
@@ -162,6 +172,7 @@ document.getElementById('another').addEventListener('click', () => {
   showErrors({});
   document.getElementById('description-count').textContent = '0';
   document.getElementById('safety').hidden = true;
+  document.getElementById('emergency').hidden = true;
   document.getElementById('thanks-view').hidden = true;
   document.getElementById('form-view').hidden = false;
   document.getElementById('name').focus();

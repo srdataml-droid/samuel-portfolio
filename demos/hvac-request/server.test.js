@@ -113,6 +113,9 @@ test('bot-filled honeypot is quietly dropped', async () => {
 
 test('page is served, files outside public are not', async () => {
   assert.equal((await fetch(`${base}/`)).status, 200);
+  const officePage = await fetch(`${base}/office`);
+  assert.equal(officePage.status, 200);
+  assert.doesNotMatch(await officePage.text(), /Dana/, 'the office page itself holds no customer data');
   assert.equal((await fetch(`${base}/..%2Fserver.js`)).status, 404);
 });
 
@@ -153,4 +156,37 @@ test('office works a lead from call list to finished job', async () => {
   const after = await (await office('')).json();
   assert.ok(!after.leads.some((l) => l.reference === reference), 'finished jobs leave the call list');
   assert.equal((await (await office(`/${reference.toLowerCase()}`)).json()).lead.history.length, 4);
+});
+
+test('office screen data: every lead, summary numbers, allowed buttons', async () => {
+  const body = await (await office('?all=1')).json();
+  assert.equal(body.timezone, 'America/Chicago');
+  assert.deepEqual(Object.keys(body.stats), ['newLeads', 'needFollowUp', 'urgent', 'booked', 'won']);
+  assert.equal(body.count, body.leads.length);
+  for (const lead of body.leads) assert.ok(Array.isArray(lead.actions));
+  assert.equal((await office('?all=1', { token: 'guess' })).status, 401);
+});
+
+test('gas leak: customer gets emergency steps, no callback promise; office is alerted', async () => {
+  const res = await post({ ...good, urgency: 'flexible', description: 'Want a tune-up, but I can smell gas near the furnace.' });
+  const body = await res.json();
+  assert.equal(res.status, 201);
+  assert.match(body.emergency.title, /gas/i);
+  assert.match(body.emergency.steps.join(' '), /911/);
+  assert.doesNotMatch(body.nextStep, /within \d|by \d/);
+
+  const [created, alert] = received.slice(-2);
+  assert.equal(created.event, 'service_request.created');
+  assert.equal(alert.event, 'safety_alert');
+  assert.equal(alert.hazard, 'gas');
+  assert.equal(alert.lead.reference, body.reference);
+
+  const lead = (await (await office(`/${body.reference}`)).json()).lead;
+  assert.deepEqual([lead.triage.priority, lead.followUpNeeded], [1, true]);
+});
+
+test('ordinary request: no emergency block', async () => {
+  const body = await (await post({ ...good, urgency: 'this_week', description: 'Thermostat screen goes blank.' })).json();
+  assert.equal(body.emergency, null);
+  assert.match(body.nextStep, /^We'll call you /);
 });

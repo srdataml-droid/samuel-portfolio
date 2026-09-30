@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Office · Brightside Heating &amp; Air</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="office.css">
+  <script type="module" src="office.js"></script>
+</head>
+<body class="office">
+  <header class="topbar">
+    <div class="wrap office-wrap topbar-inner">
+      <span class="brand">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="currentColor"/><path d="M16 6c3 4 6 7 6 11a6 6 0 0 1-12 0c0-2 1-4 2-5 0 2 1 3 2 3 0-4 1-6 2-9z" fill="#fff"/></svg>
+        <span>Brightside <small>Office</small></span>
+      </span>
+      <div class="bar-actions" id="bar-actions" hidden>
+        <span class="muted small" id="updated"></span>
+        <button class="btn" type="button" id="refresh">Refresh</button>
+        <button class="btn btn-quiet" type="button" id="signout">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap office-wrap">
+    <section class="panel signin" id="signin" hidden>
+      <h1>Office sign-in</h1>
+      <p class="muted">Enter the office password to see service requests.</p>
+      <form id="signin-form">
+        <label for="token">Office password</label>
+        <input id="token" type="password" autocomplete="current-password" required>
+        <p class="error" id="signin-error"></p>
+        <button class="submit" type="submit">Sign in</button>
+      </form>
+    </section>
+
+    <section class="panel signin" id="off" hidden>
+      <h1>Office access is off</h1>
+      <p class="muted">Start the server with <code>OFFICE_TOKEN</code> set to turn it on.</p>
+    </section>
+
+    <section id="board" hidden>
+      <div class="form-alert" id="board-alert" role="alert" hidden></div>
+
+      <ul class="stats" aria-label="Summary">
+        <li><span class="stat-num" id="stat-newLeads">0</span><span class="stat-label">New leads</span></li>
+        <li><span class="stat-num" id="stat-needFollowUp">0</span><span class="stat-label">Need follow-up</span></li>
+        <li class="stat-urgent"><span class="stat-num" id="stat-urgent">0</span><span class="stat-label">Urgent</span></li>
+        <li><span class="stat-num" id="stat-booked">0</span><span class="stat-label">Booked</span></li>
+        <li><span class="stat-num" id="stat-won">0</span><span class="stat-label">Won</span></li>
+      </ul>
+
+      <div class="board-head">
+        <h1>Service requests</h1>
+        <p class="muted small">Overdue and urgent first.</p>
+      </div>
+
+      <p class="panel empty" id="empty" hidden>No service requests yet. New ones appear here within 30 seconds.</p>
+
+      <table class="leads" id="leads">
+        <thead>
+          <tr>
+            <th scope="col">Priority</th>
+            <th scope="col">Customer</th>
+            <th scope="col">Request</th>
+            <th scope="col">Received</th>
+            <th scope="col">Call back by</th>
+            <th scope="col">Lead</th>
+            <th scope="col">Booking</th>
+            <th scope="col">Follow-up</th>
+            <th scope="col"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <dialog id="book-dialog">
+    <form method="dialog" id="book-form">
+      <h2>Book a visit</h2>
+      <p class="muted small" id="book-who"></p>
+      <label for="book-date">Day</label>
+      <input id="book-date" type="date" required>
+      <label for="book-window">Arrival window</label>
+      <select id="book-window" required></select>
+      <div class="dialog-actions">
+        <button class="btn btn-quiet" value="cancel" formnovalidate>Back</button>
+        <button class="btn btn-primary" value="ok">Mark Booked</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="lost-dialog">
+    <form method="dialog" id="lost-form">
+      <h2>Mark as lost</h2>
+      <p class="muted small" id="lost-who"></p>
+      <label for="lost-reason">Reason</label>
+      <select id="lost-reason" required>
+        <option value="">Choose one…</option>
+        <option>Went with another company</option>
+        <option>Price too high</option>
+        <option>Outside our service area</option>
+        <option>Couldn't reach them</option>
+        <option>Fixed it themselves</option>
+        <option>Not a real request</option>
+      </select>
+      <div class="dialog-actions">
+        <button class="btn btn-quiet" value="cancel" formnovalidate>Back</button>
+        <button class="btn btn-danger" value="ok">Mark Lost</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>

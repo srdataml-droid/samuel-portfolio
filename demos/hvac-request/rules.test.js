@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addOfficeMinutes, businessTime, confirmDeadline, describeDeadline, triage, customerNextStep } from './rules.js';
-import { createLead, recordContact, book, complete, cancel, markLost, workQueue } from './lead.js';
+import { addOfficeMinutes, businessTime, confirmDeadline, describeDeadline, triage, customerEmergency, customerNextStep } from './rules.js';
+import { createLead, recordContact, qualify, book, complete, cancel, markLost, workQueue, availableActions, officeView, officeStats } from './lead.js';
 
 // Office: Mon-Fri 7am-7pm, Sat 8am-4pm, Chicago time (UTC-5 until Nov 1, then UTC-6).
 
@@ -142,4 +142,78 @@ test('call list: overdue first, then most urgent', () => {
   const queue = workQueue([newSoon, booked, newEmergency, oldFlexible], wed2pm);
   assert.deepEqual(queue.map((l) => l.id), [oldFlexible.id, newEmergency.id, newSoon.id]);
   assert.equal(queue[0].overdue, true);
+});
+
+// ---- Safety
+
+test('each hazard is recognised and named', () => {
+  const hazard = (description) => triage({ urgency: 'flexible', description }).hazard;
+  assert.equal(hazard('I think I smell gas in the basement'), 'gas');
+  assert.equal(hazard('Smells like rotten eggs near the furnace'), 'gas');
+  assert.equal(hazard('Our CO alarm keeps going off'), 'carbon_monoxide');
+  assert.equal(hazard('Worried about carbon monoxide'), 'carbon_monoxide');
+  assert.equal(hazard('Saw sparks from the outdoor unit'), 'fire');
+  assert.equal(hazard('There is a burning smell from the vents'), 'fire');
+  assert.equal(hazard('Smoke coming from the furnace'), 'fire');
+  assert.equal(hazard('Thermostat screen is blank'), null);
+});
+
+test('a hazard never gets a "wait for our call" promise', () => {
+  for (const description of ['I smell gas', 'CO detector beeping', 'sparks from the unit']) {
+    const lead = createLead({ ...request, urgency: 'flexible', description: `Tune-up. ${description}.` }, { now: wed2pm });
+    assert.equal(lead.triage.priority, 1);
+    const emergency = customerEmergency(lead);
+    assert.ok(emergency.title && emergency.steps.length >= 3);
+    assert.match(emergency.steps.join(' '), /911/);
+    const next = customerNextStep(lead, wed2pm);
+    assert.doesNotMatch(next, /within|by \d/, 'no callback time is promised');
+    assert.match(next, /Don't wait for our call/);
+    assert.equal(lead.followUpNeeded, true, 'the office is still told to call');
+  }
+  assert.equal(customerEmergency(createLead(request, { now: wed2pm })), null);
+});
+
+// ---- Office screen
+
+test('qualify: only from new or contacted, and a booking is still owed', () => {
+  let lead = recordContact(createLead(request, { now: wed2pm }), { outcome: 'reached' }, wed2pm);
+  lead = qualify(lead, {}, wed2pm);
+  assert.deepEqual([lead.leadStatus, lead.followUpNeeded], ['qualified', true]);
+  assert.throws(() => qualify(lead), /already qualified/);
+  assert.equal(lead.history.at(-1).action, 'qualified');
+});
+
+test('buttons offered follow the allowed moves', () => {
+  const fresh = createLead(request, { now: wed2pm });
+  assert.deepEqual(availableActions(fresh), ['contact', 'qualify', 'book', 'lost']);
+
+  const contacted = recordContact(fresh, { outcome: 'reached' }, wed2pm);
+  assert.deepEqual(availableActions(contacted), ['contact', 'qualify', 'book', 'lost']);
+
+  const booked = book(contacted, { date: '2026-10-01', window: 'morning' }, wed2pm);
+  assert.deepEqual(availableActions(booked), ['contact', 'complete', 'cancel', 'lost']);
+
+  const cancelled = cancel(booked, {}, wed2pm);
+  assert.deepEqual(availableActions(cancelled), ['contact', 'book', 'lost']);
+
+  assert.deepEqual(availableActions(complete(booked, {}, wed2pm)), [], 'a won job is finished');
+  assert.deepEqual(availableActions(markLost(fresh, { reason: 'x' }, wed2pm)), ['contact'], 'lost can only be reopened by talking to them');
+});
+
+test('office order: overdue, then follow-ups by priority, then booked, then closed', () => {
+  const at = (urgency, iso, description = 'Needs a look at the unit.') =>
+    createLead({ ...request, description, urgency }, { now: new Date(iso) });
+  const overdue = at('flexible', '2026-09-28T14:00:00Z');
+  const urgent = at('emergency', '2026-09-30T18:55:00Z');
+  const normal = at('this_week', '2026-09-30T18:00:00Z');
+  const booked = book(at('soon', '2026-09-30T18:00:00Z'), { date: '2026-10-01', window: 'any' }, wed2pm);
+  const won = complete(book(at('soon', '2026-09-29T18:00:00Z'), { date: '2026-09-30', window: 'any' }, wed2pm), {}, wed2pm);
+  const lost = markLost(at('soon', '2026-09-29T18:00:00Z'), { reason: 'Price too high' }, new Date('2026-09-30T19:30:00Z'));
+
+  const view = officeView([won, normal, booked, lost, urgent, overdue], wed2pm);
+  assert.deepEqual(view.map((l) => l.id), [overdue.id, urgent.id, normal.id, booked.id, lost.id, won.id]);
+  assert.equal(view[0].overdue, true);
+  assert.deepEqual(view[0].actions, ['contact', 'qualify', 'book', 'lost']);
+
+  assert.deepEqual(officeStats(view), { newLeads: 3, needFollowUp: 3, urgent: 1, booked: 1, won: 1 });
 });

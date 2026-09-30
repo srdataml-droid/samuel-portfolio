@@ -45,9 +45,42 @@ export const REBOOK_AFTER_CANCEL_WITHIN = 480;
 
 const BASE_PRIORITY = { emergency: 1, soon: 2, this_week: 3, flexible: 4 };
 
-// Words that mean "possible danger": always priority 1. False alarms are cheap;
-// a missed gas leak is not.
-const SAFETY_WORDS = /\b(gas leak|smell(s|ed|ing)? (of |like )?gas|gas smell|carbon monoxide|co (alarm|detector)|smoke|smoking|burning smell|smell(s|ed|ing)? (of |like )?burning|sparks?|sparking)\b/i;
+// Words that mean "possible danger", by kind. Any match makes the request
+// priority 1 and replaces the normal "we'll call you" with emergency
+// instructions. False alarms are cheap; a missed gas leak is not.
+const HAZARDS = [
+  { kind: 'gas', words: /\b(gas leak|smell(s|ed|ing)? (of |like )?gas|gas smell|rotten eggs?)\b/i },
+  { kind: 'carbon_monoxide', words: /\b(carbon monoxide|co (alarm|detector))\b/i },
+  { kind: 'fire', words: /\b(smoke|smoking|burning smell|smell(s|ed|ing)? (of |like )?burning|sparks?|sparking)\b/i },
+];
+
+// What the customer is told to do, per hazard. Shown instead of a callback promise.
+export const EMERGENCY_STEPS = {
+  gas: {
+    title: 'Possible gas leak: leave the house now',
+    steps: [
+      'Get everyone out of the house now. Leave the door open behind you.',
+      "Don't switch lights or appliances on or off, and don't use your phone until you're outside.",
+      "From outside, call 911 or your gas company's emergency line.",
+    ],
+  },
+  carbon_monoxide: {
+    title: 'Possible carbon monoxide: get to fresh air now',
+    steps: [
+      'Get everyone, including pets, outside into fresh air now.',
+      'Call 911 from outside. Tell them a carbon monoxide alarm is going off or you suspect carbon monoxide.',
+      "Don't go back inside until the emergency services say it's safe.",
+    ],
+  },
+  fire: {
+    title: 'Possible fire or electrical fault: act now',
+    steps: [
+      'If you see smoke or flames, get everyone out and call 911 from outside.',
+      'If it is only a smell or sparks and it is safe to reach, turn the system off at the thermostat and the breaker.',
+      "Don't run the system again until a technician has checked it.",
+    ],
+  },
+};
 
 // People who suffer most without heat or cooling: moves a request up one level.
 const VULNERABLE_WORDS = /\b(baby|babies|newborn|infant|toddler|elderly|senior|pregnant|disabled|oxygen|medical|sick)\b/i;
@@ -57,14 +90,15 @@ const VULNERABLE_WORDS = /\b(baby|babies|newborn|infant|toddler|elderly|senior|p
 /** Priority 1 (drop everything) to 4 (whenever suits), plus why. */
 export function triage(request) {
   const text = request.description || '';
-  const safety = text.match(SAFETY_WORDS)?.[0]?.toLowerCase() || null;
+  const hazard = HAZARDS.find((h) => h.words.test(text)) || null;
+  const safety = hazard ? text.match(hazard.words)[0].toLowerCase() : null;
   const vulnerable = text.match(VULNERABLE_WORDS)?.[0]?.toLowerCase() || null;
 
   let priority = BASE_PRIORITY[request.urgency] ?? 4;
   if (vulnerable && priority > 1) priority -= 1;
   if (safety) priority = 1;
 
-  return { priority, safetyConcern: safety, vulnerableOccupant: vulnerable };
+  return { priority, safetyConcern: safety, hazard: hazard?.kind || null, vulnerableOccupant: vulnerable };
 }
 
 // ---- Office-hours clock
@@ -161,11 +195,19 @@ export function describeDeadline(deadline, now = new Date()) {
   return `by ${time} ${when}`;
 }
 
-/** The first "what happens next" line on the customer's confirmation. */
+/** Emergency instructions for the customer, or null when there's no hazard. */
+export function customerEmergency(lead) {
+  return EMERGENCY_STEPS[lead.triage.hazard] || null;
+}
+
+/**
+ * The first "what happens next" line on the customer's confirmation. With a
+ * hazard, it never promises a callback time: the customer must not wait for us.
+ */
 export function customerNextStep(lead, now = new Date()) {
+  if (customerEmergency(lead))
+    return "Our on-call team has been alerted and will call you. Don't wait for our call: follow the safety steps above first.";
   const when = describeDeadline(lead.followUpDueAt, now);
-  if (lead.triage.safetyConcern)
-    return `You mentioned something that could be a safety risk, so we'll call you ${when}. If you smell gas or smoke, leave the house and call 911 from outside.`;
   if (lead.request.urgency === 'emergency') return `This is marked as an emergency, so we'll call you ${when}.`;
   return `We'll call you ${when} to book a visit.`;
 }

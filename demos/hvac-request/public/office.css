@@ -1,0 +1,107 @@
+/* Office screen. Colours, fonts and form fields come from styles.css. */
+
+.office-wrap { max-width: 1320px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .95em; }
+
+.bar-actions { display: flex; align-items: center; gap: 10px; }
+.bar-actions .btn { white-space: nowrap; }
+@media (max-width: 560px) {
+  .bar-actions { gap: 4px; }
+  #updated { display: none; }
+  .office .brand small { display: none; }
+}
+.btn {
+  font: inherit; font-size: 14px; font-weight: 600; line-height: 1.2;
+  padding: 7px 12px; border-radius: 7px; cursor: pointer;
+  color: var(--ink); background: #fff; border: 1px solid #b9c3cc;
+}
+.btn:hover { border-color: var(--brand); color: var(--brand); }
+.btn:focus-visible { outline: 3px solid rgba(15, 76, 117, .3); outline-offset: 1px; }
+.btn:disabled { opacity: .5; cursor: progress; }
+.btn-quiet { border-color: transparent; background: transparent; }
+.btn-primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+.btn-primary:hover { background: var(--brand-dark); color: #fff; }
+.btn-danger { color: var(--error); }
+.btn-danger:hover { border-color: var(--error); color: var(--error); }
+dialog .btn-danger { background: var(--error); border-color: var(--error); color: #fff; }
+
+main.office-wrap { padding-top: 24px; padding-bottom: 48px; }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 24px; }
+.signin { max-width: 420px; margin: 48px auto; }
+.signin h1 { font-size: 22px; }
+.signin form { margin-top: 18px; }
+.empty { text-align: center; color: var(--muted); }
+
+/* ---- Summary numbers */
+.stats { list-style: none; margin: 0 0 24px; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.stats li { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.stat-num { display: block; font-size: 28px; font-weight: 700; line-height: 1.1; }
+.stat-label { font-size: 14px; color: var(--muted); }
+.stat-urgent.has-urgent { border-color: var(--error); background: var(--error-bg); }
+.stat-urgent.has-urgent .stat-num { color: var(--error); }
+@media (max-width: 700px) {
+  .stats { grid-template-columns: repeat(3, 1fr); }
+  .stat-num { font-size: 22px; }
+}
+
+.board-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+.board-head h1 { font-size: 20px; }
+.board-head p { margin: 0; }
+
+/* ---- Table */
+.leads { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; font-size: 14px; }
+.leads th { text-align: left; font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--muted); padding: 10px 12px; background: #f8fafb; border-bottom: 1px solid var(--line); }
+.leads td { padding: 12px; vertical-align: top; border-bottom: 1px solid var(--line); }
+.leads tbody tr:last-child td { border-bottom: 0; }
+.leads tr.overdue td:first-child { box-shadow: inset 4px 0 0 var(--error); }
+.leads tr.closed { color: var(--muted); }
+.leads tr.flash td { animation: flash 1.6s ease-out; }
+@keyframes flash { from { background: #eef5fa; } to { background: transparent; } }
+
+.leads .name { font-weight: 600; color: var(--ink); }
+.leads a.phone { color: var(--brand); text-decoration: none; white-space: nowrap; }
+.leads a.phone:hover { text-decoration: underline; }
+.leads .ref { margin: 2px 0 0; font-size: 12px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.leads .service { font-weight: 600; color: var(--ink); }
+.leads .summary { margin: 2px 0 0; color: var(--muted); max-width: 42ch; }
+.leads .sub { display: block; font-size: 12px; color: var(--muted); }
+.nowrap { white-space: nowrap; }
+.late { color: var(--error); font-weight: 700; }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; background: #eef1f4; color: var(--ink); }
+.badge + .badge { margin-top: 4px; }
+.p1 { background: var(--error); color: #fff; }
+.p2 { background: #fdebd3; color: #8a4b08; }
+.safety-badge { display: block; width: max-content; margin-top: 4px; background: #7a1a12; color: #fff; }
+.status-new { background: #e3eef6; color: var(--brand-dark); }
+.status-won, .status-completed, .status-booked { background: #e7f6ec; color: var(--ok); }
+.status-lost, .status-cancelled { background: #f1f2f4; color: var(--muted); }
+.status-tentative { background: #fff6e5; color: #8a4b08; }
+.follow-yes { background: #fff6e5; color: #8a4b08; }
+.follow-no { background: transparent; color: var(--muted); font-weight: 500; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 6px; min-width: 180px; }
+.actions .btn { padding: 5px 9px; font-size: 13px; }
+
+/* Phones and small tablets: each lead becomes a card. */
+@media (max-width: 1000px) {
+  .leads, .leads tbody, .leads tr, .leads td { display: block; width: 100%; }
+  .leads { border: 0; background: none; }
+  .leads thead { display: none; }
+  .leads tr { background: var(--card); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 12px; padding: 8px 4px; }
+  .leads tr.overdue { box-shadow: inset 4px 0 0 var(--error); }
+  .leads tr.overdue td:first-child { box-shadow: none; }
+  .leads td { border: 0; padding: 6px 12px; display: grid; grid-template-columns: 110px 1fr; gap: 8px; }
+  .leads td::before { content: attr(data-label); font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; padding-top: 2px; }
+  .leads td.actions-cell { display: block; }
+  .leads td.actions-cell::before { content: none; }
+  .actions { min-width: 0; }
+}
+
+/* ---- Dialogs */
+dialog { border: 0; border-radius: 12px; padding: 24px; width: min(400px, calc(100vw - 32px)); box-shadow: 0 20px 50px rgba(16, 24, 40, .25); }
+dialog::backdrop { background: rgba(16, 24, 40, .45); }
+dialog h2 { font-size: 20px; }
+dialog label { margin-top: 14px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }

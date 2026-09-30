@@ -188,6 +188,20 @@ export function book(current, input = {}, now = new Date()) {
   return lead;
 }
 
+/** Spoke to them: it's a real job the business can and wants to do. */
+export function qualify(current, input = {}, now = new Date()) {
+  const lead = structuredClone(current);
+  if (lead.leadStatus !== 'new' && lead.leadStatus !== 'contacted')
+    throw new LeadError(`This lead is already ${lead.leadStatus}.`);
+  move(lead, 'leadStatus', 'qualified');
+  // Still owed a booking, unless one is already in place.
+  if (lead.bookingStatus === 'booked') followUp(lead, null);
+  else if (lead.bookingStatus === 'tentative') followUp(lead, confirmDeadline(now, lead.appointment));
+  else followUp(lead, addOfficeMinutes(now, CONFIRM_TENTATIVE_WITHIN));
+  logEvent(lead, now, 'qualified', { note: text(input.note) });
+  return lead;
+}
+
 /** The visit happened. */
 export function complete(current, input = {}, now = new Date()) {
   const lead = structuredClone(current);
@@ -222,11 +236,75 @@ export function markLost(current, input = {}, now = new Date()) {
   return lead;
 }
 
-export const ACTIONS = { contact: recordContact, book, complete, cancel, lost: markLost };
+export const ACTIONS = { contact: recordContact, qualify, book, complete, cancel, lost: markLost };
+
+// A valid example input per action, used only to test whether a move is allowed.
+const TRIAL_INPUT = {
+  contact: { outcome: 'reached' },
+  book: { date: '2000-01-01', window: 'any' },
+  lost: { reason: 'trial' },
+};
+
+/**
+ * Which office buttons make sense for this lead right now. Each action is
+ * tried on a copy; if the rules refuse it, or it would change neither
+ * status, the button is hidden. So the dashboard can never offer a move
+ * the flow tables don't allow, and those rules live in one place only.
+ */
+export function availableActions(lead, now = new Date()) {
+  return Object.keys(ACTIONS).filter((name) => {
+    try {
+      const after = ACTIONS[name](lead, TRIAL_INPUT[name], now);
+      // Logging another call is always useful; other actions must change something.
+      return name === 'contact'
+        || after.leadStatus !== lead.leadStatus
+        || after.bookingStatus !== lead.bookingStatus;
+    } catch (err) {
+      if (err instanceof LeadError) return false;
+      throw err;
+    }
+  });
+}
 
 /** True when the office owes this customer something and the time has passed. */
 export function isOverdue(lead, now = new Date()) {
   return lead.followUpNeeded && Boolean(lead.followUpDueAt) && new Date(lead.followUpDueAt) < now;
+}
+
+const isOpen = (lead) => lead.leadStatus !== 'won' && lead.leadStatus !== 'lost';
+
+/**
+ * Every lead, in the order an owner should look at them:
+ *   1. overdue follow-ups, most urgent first
+ *   2. other follow-ups, most urgent first, then soonest deadline
+ *   3. open leads nothing is owed on (booked), by visit date
+ *   4. closed leads (won, lost), most recently changed first
+ */
+export function officeView(leads, now = new Date()) {
+  const tier = (l) => (l.overdue ? 0 : l.followUpNeeded ? 1 : isOpen(l) ? 2 : 3);
+  return leads
+    .map((l) => ({ ...l, overdue: isOverdue(l, now), actions: availableActions(l, now) }))
+    .sort((a, b) => {
+      const byTier = tier(a) - tier(b);
+      if (byTier) return byTier;
+      if (tier(a) <= 1)
+        return (a.triage.priority - b.triage.priority)
+          || (new Date(a.followUpDueAt) - new Date(b.followUpDueAt));
+      if (tier(a) === 2) return (a.appointment?.date || '').localeCompare(b.appointment?.date || '');
+      return b.updatedAt.localeCompare(a.updatedAt);
+    });
+}
+
+/** The five numbers at the top of the office screen. */
+export function officeStats(leads) {
+  const count = (test) => leads.filter(test).length;
+  return {
+    newLeads: count((l) => l.leadStatus === 'new'),
+    needFollowUp: count((l) => l.followUpNeeded),
+    urgent: count((l) => isOpen(l) && l.triage.priority === 1 && l.bookingStatus !== 'booked'),
+    booked: count((l) => l.bookingStatus === 'booked'),
+    won: count((l) => l.leadStatus === 'won'),
+  };
 }
 
 /** The office's call list: overdue first, then by priority, then by deadline. */

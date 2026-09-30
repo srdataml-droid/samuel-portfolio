@@ -22,6 +22,7 @@
   "triage": {
     "priority": 1,
     "safetyConcern": null,
+    "hazard": null,
     "vulnerableOccupant": "newborn"
   },
   "aiSummary": "P1 air conditioning repair. \"AC is running but blowing warm air since this morning.\" Mentions newborn in the home. Prefers 2026-09-30, afternoon (12pm to 5pm).",
