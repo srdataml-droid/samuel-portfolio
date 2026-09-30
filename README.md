@@ -66,6 +66,12 @@ Post on the platforms as usual; the site follows.
   `data/content.js`; the Lab embeds it with the platform's own player. There is
   no automatic feed for these two: that needs each platform's API access.
 
+## Demos
+
+`demos/hvac-request/` is a standalone client demo (an HVAC service request
+page) with its own README. It is plain Node with no dependencies and is not part
+of the site build.
+
 ## Artwork
 
 `node scripts/optimize-art.mjs` regenerates the small open- and closed-eye

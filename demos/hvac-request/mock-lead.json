@@ -1,0 +1,31 @@
+{
+  "id": "5b0f2c7e-9d41-4a8e-b6f3-2e1c8d7a0f55",
+  "reference": "HV-7K2Q9M",
+  "createdAt": "2026-09-30T14:12:08.000Z",
+  "source": "website_form",
+  "customer": {
+    "name": "Dana Whitfield",
+    "phone": "(555) 014-8830",
+    "email": "dana.whitfield@example.com"
+  },
+  "request": {
+    "service": "ac_repair",
+    "serviceLabel": "Air conditioning repair",
+    "description": "AC is running but blowing warm air since this morning. Outdoor unit is humming but the fan isn't spinning. House is at 84 degrees and we have a newborn.",
+    "urgency": "emergency",
+    "urgencyLabel": "Emergency: no heat or cooling right now",
+    "preferredDate": "2026-09-30",
+    "preferredWindow": "afternoon",
+    "preferredWindowLabel": "Afternoon (12pm to 5pm)"
+  },
+  "aiSummary": "Central AC blowing warm air; outdoor fan not spinning while unit hums (likely capacitor or fan motor). Home at 84°F with an infant, so treat as same-day. Customer prefers this afternoon.",
+  "leadStatus": "contacted",
+  "lastContact": {
+    "at": "2026-09-30T14:21:40.000Z",
+    "channel": "phone",
+    "by": "Office",
+    "note": "Called back, confirmed address. Tech can arrive 2pm to 4pm today. Waiting for customer to confirm."
+  },
+  "bookingStatus": "tentative",
+  "followUpNeeded": true
+}
