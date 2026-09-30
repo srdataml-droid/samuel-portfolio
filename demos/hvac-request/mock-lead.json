@@ -2,6 +2,7 @@
   "id": "5b0f2c7e-9d41-4a8e-b6f3-2e1c8d7a0f55",
   "reference": "HV-7K2Q9M",
   "createdAt": "2026-09-30T14:12:08.000Z",
+  "updatedAt": "2026-09-30T14:22:10.000Z",
   "source": "website_form",
   "customer": {
     "name": "Dana Whitfield",
@@ -18,14 +19,50 @@
     "preferredWindow": "afternoon",
     "preferredWindowLabel": "Afternoon (12pm to 5pm)"
   },
-  "aiSummary": "Central AC blowing warm air; outdoor fan not spinning while unit hums (likely capacitor or fan motor). Home at 84°F with an infant, so treat as same-day. Customer prefers this afternoon.",
-  "leadStatus": "contacted",
+  "triage": {
+    "priority": 1,
+    "safetyConcern": null,
+    "vulnerableOccupant": "newborn"
+  },
+  "aiSummary": "P1 air conditioning repair. \"AC is running but blowing warm air since this morning.\" Mentions newborn in the home. Prefers 2026-09-30, afternoon (12pm to 5pm).",
+  "leadStatus": "qualified",
   "lastContact": {
     "at": "2026-09-30T14:21:40.000Z",
     "channel": "phone",
     "by": "Office",
+    "outcome": "reached",
     "note": "Called back, confirmed address. Tech can arrive 2pm to 4pm today. Waiting for customer to confirm."
   },
   "bookingStatus": "tentative",
-  "followUpNeeded": true
+  "followUpNeeded": true,
+  "followUpDueAt": "2026-09-30T16:00:00.000Z",
+  "callAttempts": 1,
+  "unansweredInARow": 0,
+  "appointment": {
+    "date": "2026-09-30",
+    "window": "afternoon",
+    "windowLabel": "Afternoon (12pm to 5pm)",
+    "technician": "Luis"
+  },
+  "closedReason": null,
+  "history": [
+    {
+      "at": "2026-09-30T14:12:08.000Z",
+      "action": "created",
+      "priority": 1
+    },
+    {
+      "at": "2026-09-30T14:21:40.000Z",
+      "action": "contact",
+      "outcome": "reached",
+      "channel": "phone",
+      "by": "Office"
+    },
+    {
+      "at": "2026-09-30T14:22:10.000Z",
+      "action": "tentative",
+      "date": "2026-09-30",
+      "window": "afternoon"
+    }
+  ]
 }

@@ -57,6 +57,7 @@ before(async () => {
   // Leads go to a throwaway folder so tests never touch real saved requests.
   tmp = await mkdtemp(join(tmpdir(), 'hvac-test-'));
   process.env.LEADS_FILE = join(tmp, 'leads.jsonl');
+  process.env.OFFICE_TOKEN = 'test-office-token';
   process.env.WEBHOOK_URL = `http://127.0.0.1:${hook.address().port}/hook`;
   ({ server: app } = await import('./server.js'));
   app.listen(0);
@@ -79,6 +80,7 @@ test('valid request: saved, forwarded, reference returned', async () => {
   const body = await res.json();
   assert.match(body.reference, /^HV-[2-9A-HJ-NP-Z]{6}$/);
   assert.equal(body.firstName, 'Dana');
+  assert.equal(body.nextStep, "This is marked as an emergency, so we'll call you within 30 minutes.");
 
   const saved = (await readFile(process.env.LEADS_FILE, 'utf8')).trim().split('\n').map(JSON.parse);
   const lead = saved.at(-1);
@@ -86,7 +88,8 @@ test('valid request: saved, forwarded, reference returned', async () => {
   assert.equal(lead.leadStatus, 'new');
   assert.equal(lead.bookingStatus, 'not_booked');
   assert.equal(lead.followUpNeeded, true);
-  assert.equal(lead.aiSummary, null);
+  assert.equal(lead.triage.priority, 1);
+  assert.match(lead.aiSummary, /^P1 air conditioning repair/);
   assert.equal(lead.lastContact, null);
 
   assert.equal(received.at(-1).event, 'service_request.created');
@@ -111,4 +114,43 @@ test('bot-filled honeypot is quietly dropped', async () => {
 test('page is served, files outside public are not', async () => {
   assert.equal((await fetch(`${base}/`)).status, 200);
   assert.equal((await fetch(`${base}/..%2Fserver.js`)).status, 404);
+});
+
+// ---- Office endpoints
+
+const office = (path, { method = 'GET', body, token = 'test-office-token' } = {}) => fetch(`${base}/api/leads${path}`, {
+  method,
+  headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+  body: body && JSON.stringify(body),
+});
+
+test('office endpoints need the token', async () => {
+  assert.equal((await office('', { token: 'guess' })).status, 401);
+  assert.equal((await fetch(`${base}/api/leads`)).status, 401);
+});
+
+test('office works a lead from call list to finished job', async () => {
+  const { reference } = await (await post({ ...good, urgency: 'flexible', description: 'Yearly tune-up for the furnace please.' })).json();
+
+  const queue = await (await office('')).json();
+  assert.ok(queue.leads.some((l) => l.reference === reference));
+
+  const step = async (action, body) => {
+    const res = await office(`/${reference}/${action}`, { method: 'POST', body });
+    return { status: res.status, ...(await res.json()) };
+  };
+  assert.equal((await step('contact', { outcome: 'reached', by: 'Maria' })).lead.leadStatus, 'contacted');
+  assert.equal((await step('book', { date: '2099-10-01', window: 'morning' })).lead.bookingStatus, 'booked');
+  const done = await step('complete', {});
+  assert.deepEqual([done.lead.leadStatus, done.lead.followUpNeeded], ['won', false]);
+
+  const refused = await step('cancel', {});
+  assert.equal(refused.status, 409);
+  assert.equal((await step('explode', {})).status, 404);
+
+  assert.equal(received.at(-1).event, 'lead.updated');
+  assert.equal(received.at(-1).action, 'complete');
+  const after = await (await office('')).json();
+  assert.ok(!after.leads.some((l) => l.reference === reference), 'finished jobs leave the call list');
+  assert.equal((await (await office(`/${reference.toLowerCase()}`)).json()).lead.history.length, 4);
 });

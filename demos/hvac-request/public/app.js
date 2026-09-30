@@ -4,15 +4,6 @@ import { SERVICES, TIME_WINDOWS, URGENCY, isoDate, validateRequest } from './val
 // forwards it to WEBHOOK_URL. Point this at another API if you host the page elsewhere.
 const ENDPOINT = '/api/requests';
 
-// What the confirmation promises for each urgency. Set these to what the
-// business can actually keep.
-const CALLBACK = {
-  emergency: 'This is marked as an emergency, so we\'ll call you within 30 minutes.',
-  soon: 'We\'ll call you within 2 business hours to book a visit.',
-  this_week: 'We\'ll call you today or next business morning to book a visit.',
-  flexible: 'We\'ll call you within 1 business day to find a time that works.',
-};
-
 const form = document.getElementById('request-form');
 const submitButton = document.getElementById('submit');
 const formAlert = document.getElementById('form-alert');
@@ -154,7 +145,9 @@ function showThanks(result, values) {
     : '';
   document.getElementById('thanks-lead').textContent =
     `${SERVICES[values.service]}, ${day}${TIME_WINDOWS[values.preferredWindow].toLowerCase()}. We'll call you on ${values.phone}.`;
-  document.getElementById('step-1').textContent = CALLBACK[values.urgency];
+  // The server works out the real callback time from office hours and
+  // priority (rules.js), so this promise always matches the office's deadline.
+  document.getElementById('step-1').textContent = result.nextStep;
 
   document.getElementById('form-view').hidden = true;
   const thanks = document.getElementById('thanks-view');
