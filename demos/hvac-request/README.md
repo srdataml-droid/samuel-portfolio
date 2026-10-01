@@ -9,8 +9,7 @@ hours and promises are placeholders to swap for a real client's.
 
 ## Run it
 
-Needs Node 18 or newer. Nothing to install to run it on your machine (its one
-dependency, `@vercel/functions`, is only loaded on Vercel).
+Needs Node 18 or newer. There is nothing to install.
 
 ```bash
 cd demos/hvac-request
@@ -24,11 +23,10 @@ Send each request to a webhook (Zapier, Make, n8n, a CRM, Slack, your own API):
 WEBHOOK_URL=https://hooks.zapier.com/hooks/catch/xxx/yyy npm start
 ```
 
-Other settings: `PORT` (default 3100), `LEADS_FILE` (default `data/leads.jsonl`),
-`OFFICE_TOKEN` (turns on the office screen and API, below), the `GOOGLE_*`
-settings (copy every lead to a Google Sheet, below) and the `SUPABASE_*`
-settings (keep leads in a database instead of a file; needed on Vercel, below).
-Without any of them the demo runs as is.
+Other settings: `PORT` (default 3100), `OFFICE_TOKEN` (turns on the office
+screen and API, below) and the `GOOGLE_*` settings (keep leads in a Google
+Sheet, below). Without the Google settings, leads are kept in a file,
+`LEADS_FILE` (default `data/leads.jsonl`), which is fine for trying it out.
 
 ## What happens on submit
 
@@ -36,9 +34,10 @@ Without any of them the demo runs as is.
 2. It POSTs the form as JSON to `/api/requests`.
 3. The server checks everything again with the same rules (`public/validate.js`),
    because a browser can be bypassed. Bad input gets a `422` with a message per field.
-4. The server triages the request (`rules.js`), turns it into an internal lead (`lead.js`) and adds it to
-   `data/leads.jsonl` **before** calling the webhook, so the lead is saved even
-   when the webhook is down.
+4. The server triages the request (`rules.js`), turns it into an internal lead
+   (`lead.js`) and saves it (Google Sheet, or the local file) **before** calling
+   the webhook or telling the customer anything. If it can't be saved, the
+   customer is asked to call instead.
 5. If `WEBHOOK_URL` is set, it POSTs `{ "event": "service_request.created", "lead": {...} }`.
    A webhook failure is logged and the customer still gets their confirmation.
 6. The page shows the thank-you view: the reference (e.g. `HV-7K2Q9M`), what
@@ -197,31 +196,43 @@ With `WEBHOOK_URL` set, every change is also sent there as
 `{ "event": "lead.updated", "action": "book", "lead": {...} }`, so a CRM,
 spreadsheet or Slack channel can stay in step.
 
-## Google Sheets sync
+## Google Sheet: where leads are kept
 
-Optional. When it's on, every lead has exactly one row in a Google Sheet, so
-the owner can see the whole pipeline outside the office screen.
+With the Google settings below, the Sheet is where leads live: one row per
+lead. The owner sees the whole pipeline there, and the office screen reads
+from it too. Without them, leads go to a local file instead.
 
-- **New request:** a row is added.
-- **Status change:** that same row is updated, found by Lead ID (column A).
+- **New request:** a row is added, before the customer is told it was sent.
+- **Status change:** that same row is rewritten, found by Lead ID (column A).
   The ID is looked up fresh every time, so sorting, filtering or moving rows in
   the sheet is safe and never causes a duplicate.
-- **Google unavailable:** the lead is saved locally and the customer gets their
-  confirmation as normal. The failure is logged as
-  `[sheets] HV-XXXXXX not synced, will retry: ...`, and the lead is retried every
-  3 minutes with its latest version.
-- **Not configured:** sync is simply off. The server says so on start-up.
+- **Google unavailable:** nothing is pretended. The customer sees "we couldn't
+  send your request, please call us", the office screen shows it can't load,
+  and the server logs a `[sheet]` line with Google's reason. Once Google is
+  back, everything works as normal.
 
-The local file stays the record; the sheet is a copy. Writes happen in the
-background after the lead is saved, so a slow Google never slows the form.
-Everything is written as plain text, so a customer typing `=SOMETHING(...)`
-can't create a formula in the owner's sheet.
-
-Columns (created in row 1 automatically): Lead ID, Received At, Customer Name,
-Phone, Email, Service, Problem, Priority, Hazard, Lead Status, Booking Status,
+Columns A to R are for people: Lead ID, Received At, Customer Name, Phone,
+Email, Service, Problem, Priority, Hazard, Lead Status, Booking Status,
 Follow-up Needed, Callback Deadline, Preferred Day, Preferred Time, AI Summary,
 Last Contact, Updated At. Times are the business's time zone (`TIMEZONE` in
 `rules.js`), written as `2026-09-30 14:07` so they sort correctly.
+
+Column S, **Record**, is for the app: the full lead (its history, appointment,
+call attempts) as text. The app reads only this column.
+
+- **Change statuses in the office screen, not in the sheet.** Editing columns
+  A to R by hand does nothing in the app, and the app's next change to that
+  lead rewrites the row.
+- **Don't edit or clear column S.** A row whose Record is missing or damaged
+  is skipped (and logged), so the office screen won't show it.
+- Rows you add by hand are ignored by the app.
+
+The header row, including Record, is written automatically. If row 1 already
+has the 18 headers above, the Record column is simply added. A tab with other
+data in row 1 is refused, never overwritten.
+
+Everything is written as plain text, so a customer typing `=SOMETHING(...)`
+can't create a formula in the owner's sheet.
 
 ### Settings
 
@@ -232,8 +243,8 @@ Last Contact, Updated At. Times are the business's time zone (`TIMEZONE` in
 | `GOOGLE_PRIVATE_KEY` | yes | The service account's private key (`private_key` in its key file), the whole `-----BEGIN PRIVATE KEY-----...-----END PRIVATE KEY-----` text. Real line breaks or `\n` both work |
 | `GOOGLE_SHEET_TAB` | no | The tab to write to. Default `Leads` |
 
-All three required ones must be set, or sync stays off (the start-up log says
-which is missing). Never commit these values; `.env*` files are already
+Set all three required ones, or none. With none, leads go to the local file.
+With only some, nothing is saved and the start-up log says which are missing. Never commit these values; `.env*` files are already
 ignored by git.
 
 ### Setup (about 10 minutes, free)
@@ -265,14 +276,11 @@ ignored by git.
    On Render, Railway or similar, paste the same three values into the
    service's environment variables. The private key can be pasted as one line
    with `\n` in it, exactly as it appears in the JSON file.
-8. **Check it:** the start-up log should say `Google Sheets sync on: tab "Leads"`.
-   Submit a request on the page; its row appears within a few seconds.
-9. **Bring in older leads** (optional): `npm run sheets:backfill` writes a row
-   for every lead already saved locally. It's safe to run again; it updates
-   rather than duplicates. Also run it if the server restarted while Google
-   was unreachable, since the automatic retry list is kept in memory.
+8. **Check it:** the start-up log should say `Leads stored in Google Sheet, tab "Leads"`.
+   Submit a request on the page; its row is there by the time you see the
+   confirmation.
 
-**If rows don't appear**, the server log has a `[sheets]` line with Google's
+**If the form says it couldn't send**, the server log has a `[sheet]` line with Google's
 reason: 403 means the sheet isn't shared with the service account, 404 means a
 wrong `GOOGLE_SHEET_ID`, "Unable to parse range" means the tab name doesn't
 match, and "isn't our header" means the tab already had other data in row 1
@@ -281,23 +289,10 @@ match, and "isn't our header" means the tab already had other data in row 1
 ## Live on Vercel
 
 Vercel runs the pages as static files and each API route as a small function
-(the files in `api/`). Those functions start on fresh machines that can't keep
-files, so on Vercel:
-
-- **Leads are kept in Supabase**, in the `hvac_demo_leads` table
-  (`db/hvac_demo_leads.sql`). The table is locked: row-level security is on
-  with no policies, the public keys have no access, and the secret key can
-  read, add and update but not delete.
-- **Sheet writes finish after the customer's reply**, using Vercel's own
-  `waitUntil`, so Google never slows the form down.
-- **Missed sheet writes are caught up.** Each lead remembers whether its sheet
-  row is current. Each time the office screen refreshes (every 30 seconds), up
-  to 5 out-of-date rows at least a minute old are rewritten.
-- **If the database is unreachable**, the customer is told to call instead,
-  and nothing is written to the sheet. No request is shown as sent when it
-  wasn't saved.
-- Locally, and on hosts that keep files, nothing changes: with no
-  `SUPABASE_*` settings the demo uses `data/leads.jsonl` as before.
+(the files in `api/`). Those functions can't keep files, so on Vercel the
+Google Sheet is required: it is where leads are kept. Without the Google
+settings, the form answers "we couldn't send your request, please call us"
+rather than pretending to save.
 
 ### Settings
 
@@ -306,23 +301,16 @@ next deployment (Deployments → the latest → ⋯ → Redeploy).
 
 | Variable | What it is |
 | --- | --- |
-| `SUPABASE_URL` | The Supabase project URL, e.g. `https://abcd1234.supabase.co` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API Keys → a **secret** key (`sb_secret_...`), or the legacy `service_role` key. It must never reach a browser: add it as Sensitive |
-| `GOOGLE_SHEET_ID`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY` | As in "Google Sheets sync" above. Paste the private key exactly as it appears in the key file; its `\n`s are fine |
+| `GOOGLE_SHEET_ID`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY` | As in "Google Sheet" above. Paste the private key exactly as it appears in the key file; its `\n`s are fine. Add the key as Sensitive |
 | `OFFICE_TOKEN` | The password for `/office`. Add it as Sensitive |
-
-On Vercel, `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are required: without
-them the form answers "can't send right now, please call" rather than
-pretending to save.
 
 ### Project setup (for reference)
 
 - New Vercel project from this GitHub repository, **Root Directory**
   `demos/hvac-request`, framework **Other**. `vercel.json` does the rest: pages
   served from `public/` with clean links (`/office`), functions from `api/`.
-- Database: run `db/hvac_demo_leads.sql` once in the Supabase SQL editor.
 - After changing settings, redeploy. Then check: submit the form, open
-  `/office`, change the lead's status, and look for its row in the sheet.
+  `/office`, change the lead's status, and look at its row in the sheet.
 
 ## Files
 
@@ -334,15 +322,12 @@ pretending to save.
 | `public/office.html`, `office.css`, `office.js` | The office screen at `/office` |
 | `rules.js` | **The business rules**: office hours, deadlines, triage words, the summary |
 | `lead.js` | The lead record, the office actions (contact, qualify, book, complete, cancel, lost), which actions each lead allows, office order and summary numbers |
-| `store.js` | Picks where leads are kept; the local file store (`data/leads.jsonl`, one line per change) |
-| `store-supabase.js` | The Supabase store used on Vercel |
-| `db/hvac_demo_leads.sql` | The Supabase table |
+| `store.js` | Picks where leads are kept (Google Sheet or local file); the local file store |
 | `api/`, `vercel.json` | The Vercel functions (one per route, all using `server.js`) and Vercel settings |
 | `server.js` | Serves the page, the customer endpoint and the office endpoints |
-| `sheets.js` | Google Sheets sync: one row per lead, updated in place |
-| `sheets-backfill.js` | `npm run sheets:backfill`: writes every saved lead to the sheet |
+| `sheets.js` | The Google Sheet store: one row per lead, updated in place |
 | `mock-lead.json` | A real lead, produced by the code |
-| `*.test.js`, `fakes.js` | `npm test`, with local stand-ins for Google and Supabase |
+| `*.test.js`, `fakes.js` | `npm test`, with a local stand-in for Google |
 
 ## Before showing it to a real business
 
@@ -350,6 +335,6 @@ pretending to save.
   hours and the three selling points with ones the business can stand behind.
 - Go through the settings at the top of `rules.js` with the owner: time zone,
   hours, response times, retry limits. The confirmation page promises exactly those.
-- On hosts that wipe local files on each deploy (Render, Railway), set the
-  `SUPABASE_*` settings too, or `data/leads.jsonl` is lost at every deploy.
+- Use the Google Sheet anywhere the demo is public. The local file is for
+  trying it out; hosts like Render and Railway wipe it on every deploy.
 - There is no rate limiting. Add it before putting this on a public URL long term.

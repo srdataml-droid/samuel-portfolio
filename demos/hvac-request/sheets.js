@@ -2,18 +2,20 @@ import { createSign } from 'node:crypto';
 import { TIMEZONE } from './rules.js';
 
 /**
- * Keeps one Google Sheet row per lead, so the owner can see the whole
- * pipeline outside the office screen.
+ * Leads kept in a Google Sheet: one row per lead. The sheet is the store
+ * whenever GOOGLE_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL and
+ * GOOGLE_PRIVATE_KEY are all set (store.js decides), so the owner sees the
+ * whole pipeline in the sheet and the office screen reads from it too.
  *
- * - Off unless GOOGLE_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL and
- *   GOOGLE_PRIVATE_KEY are all set. The demo runs the same without them.
- * - The local lead store stays the record. The sheet is a copy: syncing runs
- *   after the lead is saved, in the background, one write at a time.
+ * - Columns A to R are for people. Column S ("Record") holds the full lead
+ *   as JSON for the app: history, appointment, call attempts. The app reads
+ *   column S only, so editing A to R by hand changes nothing in the app,
+ *   and the app's next change to that lead rewrites the row.
  * - Rows are matched on Lead ID (column A), looked up fresh before every
  *   write, so a lead never gets a second row, even if the owner sorts or
- *   moves rows in the sheet.
- * - If Google is unreachable, the failure is logged and the lead is retried
- *   every few minutes. `npm run sheets:backfill` rewrites every lead's row.
+ *   moves rows.
+ * - A lead is saved before the customer is told it was sent. If Google is
+ *   unreachable, the save fails with a 503 and the page asks them to call.
  * - Values are written as plain text (valueInputOption=RAW), so something a
  *   customer types, like "=IMPORTXML(...)", can never run as a formula.
  * - No Google library: the service-account sign-in is ~20 lines of node:crypto.
@@ -23,10 +25,11 @@ export const COLUMNS = [
   'Lead ID', 'Received At', 'Customer Name', 'Phone', 'Email', 'Service', 'Problem',
   'Priority', 'Hazard', 'Lead Status', 'Booking Status', 'Follow-up Needed',
   'Callback Deadline', 'Preferred Day', 'Preferred Time', 'AI Summary', 'Last Contact', 'Updated At',
+  'Record',
 ];
-const LAST_COLUMN = String.fromCharCode(64 + COLUMNS.length); // "R"
+const RECORD = COLUMNS.indexOf('Record');
+const LAST_COLUMN = String.fromCharCode(64 + COLUMNS.length); // "S"
 
-const RETRY_EVERY = 3 * 60_000;
 const TIMEOUT = 10_000;
 
 // ---- Lead -> row
@@ -70,6 +73,7 @@ export function leadToRow(lead) {
     lead.aiSummary || '',
     lastContact,
     sheetTime(lead.updatedAt),
+    JSON.stringify(lead),
   ];
 }
 
@@ -133,41 +137,32 @@ function sheetsClient({ sheetId, tab, apiUrl, accessToken }) {
   };
 }
 
-// ---- Sync
+// ---- The store
 
-/**
- * Settings come from the environment. Returns a sync that does nothing (and
- * says so once at start-up) when Google isn't configured.
- *
- * getLead(id)      latest saved version of a lead, for retries (may be async)
- * onSynced(lead)   called once the sheet row matches that version
- * retryInMemory    retry failures on a timer. Turn off where the store tracks
- *                  unsynced leads itself (Supabase on Vercel), since a
- *                  serverless machine may not live long enough to retry.
- */
-export function createSheetsSync(env = process.env, {
-  getLead = () => null, onSynced = null, retryInMemory = true, log = console,
-} = {}) {
-  const sheetId = env.GOOGLE_SHEET_ID || '';
-  const email = env.GOOGLE_SERVICE_ACCOUNT_EMAIL || '';
-  // Hosting dashboards store the key on one line with literal "\n"s; turn them back into newlines.
-  const privateKey = (env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+/** Settings from the environment. Call only when all three GOOGLE_* values are set. */
+export function openSheetStore(env, { log = console } = {}) {
   const tab = env.GOOGLE_SHEET_TAB || 'Leads';
-
-  const configured = [sheetId, email, privateKey].filter(Boolean).length;
-  if (configured < 3) {
-    const status = configured === 0
-      ? 'Google Sheets sync off (set GOOGLE_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_PRIVATE_KEY to turn it on)'
-      : 'Google Sheets sync OFF: GOOGLE_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_PRIVATE_KEY must all be set';
-    return { enabled: false, status, sync: async () => false, idle: async () => {}, retryFailed: async () => {}, stop() {} };
-  }
-
   const client = sheetsClient({
-    sheetId,
+    sheetId: env.GOOGLE_SHEET_ID,
     tab,
     apiUrl: env.GOOGLE_SHEETS_API_URL || 'https://sheets.googleapis.com',
-    accessToken: tokenSource({ email, privateKey, tokenUrl: env.GOOGLE_TOKEN_URL || 'https://oauth2.googleapis.com/token' }),
+    accessToken: tokenSource({
+      email: env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      // Hosting dashboards store the key on one line with literal "\n"s; turn them back into newlines.
+      privateKey: env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      tokenUrl: env.GOOGLE_TOKEN_URL || 'https://oauth2.googleapis.com/token',
+    }),
   });
+
+  // Google's reason goes to the server log; callers only hear "unavailable".
+  async function google(work) {
+    try {
+      return await work();
+    } catch (err) {
+      log.error(`[sheet] ${err.message}`);
+      throw Object.assign(new Error('Lead storage is unavailable. Please try again.'), { status: 503 });
+    }
+  }
 
   let headerChecked = false;
   async function ensureHeader() {
@@ -179,68 +174,46 @@ export function createSheetsSync(env = process.env, {
     headerChecked = true;
   }
 
-  async function upsert(lead) {
+  /** Every lead in the sheet. Rows without a readable record (typed in by hand) are skipped. */
+  async function leads() {
     await ensureHeader();
-    const ids = await client.readRange('A:A');
-    const index = ids.findIndex((row, i) => i > 0 && row[0] === lead.reference);
-    if (index === -1) await client.appendRow(leadToRow(lead));
-    else await client.writeRow(index + 1, leadToRow(lead));
+    const rows = await client.readRange(`A2:${LAST_COLUMN}`);
+    const found = [];
+    for (const row of rows) {
+      if (!row[RECORD]) continue;
+      try {
+        const lead = JSON.parse(row[RECORD]);
+        if (lead && lead.reference === row[0]) found.push(lead);
+        else log.error(`[sheet] skipped row ${row[0] || '(no Lead ID)'}: its Record doesn't match its Lead ID`);
+      } catch {
+        log.error(`[sheet] skipped row ${row[0] || '(no Lead ID)'}: unreadable Record`);
+      }
+    }
+    return found;
   }
 
-  // One write at a time, so two quick changes to a new lead can't both
+  // One write at a time, so a new lead and a quick change to it can't both
   // decide "no row yet" and append twice.
   let queue = Promise.resolve();
-  const failed = new Set();
-
-  /** Queue a write of this lead's row. Resolves true once the row matches, false if it failed. */
-  function sync(lead) {
-    const job = queue.then(async () => {
-      try {
-        await upsert(lead);
-      } catch (err) {
-        failed.add(lead.id);
-        log.error(`[sheets] ${lead.reference} not synced, will retry: ${err.message}`);
-        return false;
-      }
-      failed.delete(lead.id);
-      try {
-        await onSynced?.(lead);
-      } catch (err) {
-        log.error(`[sheets] ${lead.reference} synced, but couldn't record it: ${err.message}`);
-      }
-      return true;
-    });
-    queue = job;
-    return job;
-  }
-
-  /** Try every lead whose last sync failed again, using its latest saved version. */
-  async function retryFailed() {
-    for (const id of [...failed]) {
-      let lead = null;
-      try {
-        lead = await getLead(id);
-      } catch (err) {
-        log.error(`[sheets] couldn't load lead ${id} to retry: ${err.message}`);
-        continue;
-      }
-      if (lead) sync(lead);
-      else failed.delete(id);
-    }
-    await queue;
-  }
-
-  const timer = retryInMemory ? setInterval(() => { if (failed.size) retryFailed(); }, RETRY_EVERY) : null;
-  timer?.unref();
 
   return {
-    enabled: true,
-    status: `Google Sheets sync on: tab "${tab}"`,
-    sync,
-    retryFailed,
-    failedCount: () => failed.size,
-    /** Resolves once every queued write has finished. */
-    idle: () => queue,
-    stop: () => timer && clearInterval(timer),
+    status: `Leads stored in Google Sheet, tab "${tab}"`,
+
+    get: (id) => google(async () => (await leads()).find((l) => l.id === id) || null),
+    findByReference: (ref) => google(async () => (await leads()).find((l) => l.reference === ref) || null),
+    all: () => google(async () => (await leads()).sort((a, b) => b.createdAt.localeCompare(a.createdAt))),
+
+    /** Adds the lead's row, or rewrites it if the Lead ID is already there. */
+    save(lead) {
+      const write = queue.then(() => google(async () => {
+        await ensureHeader();
+        const ids = await client.readRange('A:A');
+        const index = ids.findIndex((row, i) => i > 0 && row[0] === lead.reference);
+        if (index === -1) await client.appendRow(leadToRow(lead));
+        else await client.writeRow(index + 1, leadToRow(lead));
+      }));
+      queue = write.catch(() => {});
+      return write;
+    },
   };
 }

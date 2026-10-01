@@ -1,7 +1,7 @@
 /**
- * Stand-ins for Google and Supabase, used by the tests only. Each is a small
- * local HTTP server that answers the exact calls the app makes and checks
- * them the way the real service would (signed sign-in, keys, RAW writes).
+ * A stand-in for Google, used by the tests only: a small local HTTP server
+ * that answers the exact calls the app makes and checks them the way Google
+ * would (signed sign-in, access token, plain-text RAW writes).
  */
 import { createServer } from 'node:http';
 import { createVerify, generateKeyPairSync } from 'node:crypto';
@@ -52,8 +52,9 @@ export async function startFakeGoogle() {
     const [, range, append] = m;
 
     if (req.method === 'GET') {
-      if (range === 'A1:R1') return send(200, { values: state.grid.length ? [state.grid[0]] : undefined });
+      if (range === 'A1:S1') return send(200, { values: state.grid.length ? [state.grid[0]] : undefined });
       if (range === 'A:A') return send(200, { values: state.grid.map((r) => (r[0] ? [r[0]] : [])) });
+      if (range === 'A2:S') return send(200, { values: state.grid.slice(1) });
     }
     state.writes.push(url.searchParams.get('valueInputOption'));
     if (url.searchParams.get('valueInputOption') !== 'RAW') return send(400, { error: { message: 'expected RAW' } });
@@ -79,82 +80,6 @@ export async function startFakeGoogle() {
       GOOGLE_TOKEN_URL: `${url}/token`,
     }),
     reset() { state.grid = []; state.down = false; state.writes = []; },
-    close: () => server.close(),
-  };
-}
-
-// ---- Supabase: the REST (PostgREST) calls store-supabase.js makes on hvac_demo_leads
-
-export async function startFakeSupabase({ key = 'sb_secret_test-key' } = {}) {
-  const state = {
-    rows: new Map(),  // id -> { id, reference, data, created_at, updated_at, sheet_synced_at }
-    down: false,
-    requests: [],
-  };
-
-  const server = await listen((req, res, body) => {
-    const send = reply(res);
-    state.requests.push({ method: req.method, url: req.url, headers: req.headers });
-    if (state.down) return send(503, { message: 'upstream unavailable' });
-    // New sb_secret_ keys go in apikey only; old JWT keys also in Authorization.
-    if (req.headers.apikey !== key) return send(401, { message: 'Invalid API key' });
-    const wantAuth = key.startsWith('eyJ') ? `Bearer ${key}` : undefined;
-    if (req.headers.authorization !== wantAuth) return send(401, { message: 'Unexpected Authorization header' });
-
-    const url = new URL(req.url, 'http://x');
-    if (url.pathname !== '/rest/v1/hvac_demo_leads') return send(404, { message: 'relation does not exist' });
-    const q = url.searchParams;
-
-    const filters = [];
-    for (const [column, value] of q) {
-      if (['select', 'order', 'limit', 'on_conflict'].includes(column)) continue;
-      const [op, ...rest] = value.split('.');
-      const operand = rest.join('.');
-      if (op === 'eq') filters.push((row) => String(row[column]) === operand);
-      else if (op === 'is' && operand === 'null') filters.push((row) => row[column] == null);
-      else if (op === 'lt') filters.push((row) => row[column] != null && new Date(row[column]) < new Date(operand));
-      else return send(400, { message: `fake does not support ${column}=${value}` });
-    }
-    const matches = (row) => filters.every((f) => f(row));
-
-    if (req.method === 'GET') {
-      if (q.get('select') !== 'data') return send(400, { message: 'expected select=data' });
-      let list = [...state.rows.values()].filter(matches);
-      if (q.get('order')) {
-        const [column, dir] = q.get('order').split('.');
-        list.sort((a, b) => (a[column] < b[column] ? -1 : a[column] > b[column] ? 1 : 0) * (dir === 'desc' ? -1 : 1));
-      }
-      if (q.get('limit')) list = list.slice(0, Number(q.get('limit')));
-      return send(200, list.map((row) => ({ data: row.data })));
-    }
-
-    if (req.method === 'POST') {
-      if (q.get('on_conflict') !== 'id' || !/resolution=merge-duplicates/.test(req.headers.prefer || ''))
-        return send(400, { message: 'expected an upsert on id' });
-      const row = JSON.parse(body);
-      for (const other of state.rows.values())
-        if (other.reference === row.reference && other.id !== row.id)
-          return send(409, { message: 'duplicate key value violates unique constraint "hvac_demo_leads_reference_key"' });
-      state.rows.set(row.id, { ...state.rows.get(row.id), ...row });
-      return send(201);
-    }
-
-    if (req.method === 'PATCH') {
-      const patch = JSON.parse(body);
-      for (const row of state.rows.values()) if (matches(row)) Object.assign(row, patch);
-      return send(204);
-    }
-
-    return send(405, { message: 'method not allowed' });
-  });
-
-  const url = `http://127.0.0.1:${server.address().port}`;
-  return {
-    state,
-    key,
-    url,
-    env: () => ({ SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: key }),
-    reset() { state.rows.clear(); state.down = false; state.requests = []; },
     close: () => server.close(),
   };
 }

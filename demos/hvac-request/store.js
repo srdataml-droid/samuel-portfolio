@@ -1,31 +1,34 @@
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { openSupabaseStore } from './store-supabase.js';
+import { openSheetStore } from './sheets.js';
+
+const GOOGLE = ['GOOGLE_SHEET_ID', 'GOOGLE_SERVICE_ACCOUNT_EMAIL', 'GOOGLE_PRIVATE_KEY'];
 
 /**
  * Picks where leads are kept:
- * - SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY set -> a Supabase table (use this on Vercel)
- * - otherwise -> a file on this machine (local runs, Render, Railway)
- * On Vercel without a database, every request fails loudly with a 503
- * rather than pretending to save into a folder that is wiped.
+ * - all three GOOGLE_* settings -> the Google Sheet (use this on Vercel)
+ * - none of them -> a file on this machine (local runs)
+ * With only some of them, or on Vercel without them, every request fails
+ * with a 503 rather than saving somewhere the owner won't look, or into a
+ * folder Vercel wipes.
  */
 export async function openLeadStore(env, { file }) {
-  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY)
-    return openSupabaseStore({ url: env.SUPABASE_URL, key: env.SUPABASE_SERVICE_ROLE_KEY });
-  if (env.SUPABASE_URL || env.SUPABASE_SERVICE_ROLE_KEY || env.VERCEL) return unconfiguredStore();
+  const set = GOOGLE.filter((name) => env[name]);
+  if (set.length === GOOGLE.length) return openSheetStore(env);
+  if (set.length || env.VERCEL) return unconfiguredStore(GOOGLE.filter((name) => !env[name]));
   return openStore(file);
 }
 
-function unconfiguredStore() {
+function unconfiguredStore(missing) {
   // The reason goes to the server log; the caller only hears "unavailable".
   const refuse = async () => {
-    console.error('[store] Lead storage is not set up: set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
+    console.error(`[store] Lead storage is not set up: missing ${missing.join(', ')}`);
     const err = new Error('Lead storage is unavailable. Please try again.');
     err.status = 503;
     throw err;
   };
   return {
-    status: 'Lead storage NOT set up: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must both be set',
+    status: `Lead storage NOT set up: missing ${missing.join(', ')}`,
     get: refuse, all: refuse, findByReference: refuse, save: refuse,
   };
 }
@@ -34,8 +37,8 @@ function unconfiguredStore() {
  * Leads live in one append-only file: every save adds the lead's latest
  * version as a new line, and on start-up the last line for each id wins.
  * Nothing is ever overwritten, so a crash mid-write can't damage an older
- * record, and the file doubles as a full history. Fine for one office; swap
- * for Postgres (Supabase) when there are several.
+ * record, and the file doubles as a full history. Used when no Google
+ * Sheet is set up, e.g. trying the demo on your own machine.
  */
 export async function openStore(file) {
   const leads = new Map();

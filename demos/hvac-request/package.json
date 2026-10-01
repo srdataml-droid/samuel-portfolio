@@ -9,10 +9,6 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test": "node --test",
-    "sheets:backfill": "node sheets-backfill.js"
-  },
-  "dependencies": {
-    "@vercel/functions": "^3.9.9"
+    "test": "node --test"
   }
 }

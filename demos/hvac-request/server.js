@@ -7,7 +7,6 @@ import { validateRequest } from './public/validate.js';
 import { ACTIONS, createLead, officeStats, officeView, workQueue } from './lead.js';
 import { TIMEZONE, customerEmergency, customerNextStep } from './rules.js';
 import { openLeadStore } from './store.js';
-import { createSheetsSync } from './sheets.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(ROOT, 'public');
@@ -22,21 +21,8 @@ const WEBHOOK_URL = process.env.WEBHOOK_URL || '';
 const OFFICE_TOKEN = process.env.OFFICE_TOKEN || '';
 const MAX_BODY_BYTES = 16 * 1024;
 
-// A Supabase table when SUPABASE_* is set (needed on Vercel), otherwise a local file.
+// The Google Sheet when GOOGLE_* is set (needed on Vercel), otherwise a local file.
 const store = await openLeadStore(process.env, { file: LEADS_FILE });
-// Copies every lead to a Google Sheet when GOOGLE_* settings are present (see sheets.js).
-// With Supabase, the table remembers which rows still need writing, so retries
-// don't depend on this machine staying alive.
-export const sheets = createSheetsSync(process.env, {
-  getLead: (id) => store.get(id),
-  onSynced: store.markSynced ? (lead) => store.markSynced(lead) : null,
-  retryInMemory: !store.unsynced,
-});
-
-// On Vercel the machine can be frozen as soon as the reply is sent. waitUntil
-// (Vercel's own helper) keeps it running until the sheet write has finished.
-// A normal server keeps running anyway, so elsewhere it does nothing.
-const { waitUntil } = process.env.VERCEL ? await import('@vercel/functions') : { waitUntil: () => {} };
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -113,9 +99,8 @@ async function handleRequest(req, res) {
 
   const now = new Date();
   const lead = createLead(data, { now });
-  // Saved before forwarding, so a webhook outage never loses a customer.
+  // Saved before anything else, and before the customer is told it was sent.
   await store.save(lead);
-  waitUntil(sheets.sync(lead)); // after the reply: a slow or failing Google never delays the customer
   const delivered = await notify('service_request.created', lead);
   console.log(`[lead] ${lead.reference} P${lead.triage.priority} ${lead.request.service} due ${lead.followUpDueAt}${WEBHOOK_URL ? ` webhook=${delivered ? 'ok' : 'FAILED'}` : ''}`);
 
@@ -162,9 +147,6 @@ async function handleOffice(req, res, parts) {
       const leads = workQueue(await store.all(), now);
       return sendJSON(res, 200, { ok: true, count: leads.length, leads });
     }
-    // The office screen asks every 30 seconds: a good moment to rewrite any
-    // sheet rows an earlier Google outage left behind.
-    if (sheets.enabled && store.unsynced) waitUntil(catchUpSheet());
     const leads = officeView(await store.all(), now);
     return sendJSON(res, 200, {
       ok: true, count: leads.length, timezone: TIMEZONE, stats: officeStats(leads), leads,
@@ -186,19 +168,9 @@ async function handleOffice(req, res, parts) {
 
   const updated = ACTIONS[action](lead, await readJSON(req), now);
   await store.save(updated);
-  waitUntil(sheets.sync(updated));
   await notify('lead.updated', updated, { action });
   console.log(`[lead] ${updated.reference} ${action} -> ${updated.leadStatus}/${updated.bookingStatus}`);
   return sendJSON(res, 200, { ok: true, lead: updated });
-}
-
-/** Rewrites sheet rows that a failed or interrupted write left out of date. */
-async function catchUpSheet() {
-  try {
-    for (const lead of await store.unsynced()) await sheets.sync(lead);
-  } catch (err) {
-    console.error(`[sheets] catch-up failed: ${err.message}`);
-  }
 }
 
 async function serveStatic(req, res) {
@@ -263,7 +235,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.log(`HVAC request page: http://localhost:${PORT}`);
     console.log(store.status);
     console.log(WEBHOOK_URL ? `Forwarding requests to ${new URL(WEBHOOK_URL).host}` : 'No WEBHOOK_URL set: nothing is forwarded');
-    console.log(sheets.status);
     console.log(OFFICE_TOKEN ? 'Office endpoints on: /api/leads' : 'Office endpoints off (set OFFICE_TOKEN to turn them on)');
   });
 }
